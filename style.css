@@ -1,0 +1,31 @@
+body {
+    font-family: 'Arial', 'Helvetica', sans-serif;
+    margin: 20px;
+}
+
+.status, .panel-container {
+    padding: 10px;
+    background: #f0f0f0;
+    margin: 10px 0;
+    border-radius: 5px;
+    font-family: 'Arial', 'Helvetica', sans-serif;
+}
+
+.chart-container {
+    width: 80%;
+    height: 400px;
+    margin: 20px auto;
+}
+
+.panel-container{
+    justify-content: center;
+}
+
+.color-container{
+    display: inline-block;
+    vertical-align: top;
+    width: 100px; /* или любая подходящая ширина */
+    margin: 0 10px;
+    text-align: center;
+    font-size: 13px;
+}

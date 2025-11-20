@@ -3,24 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>Графики ВОЗ</title>
-    <style>
-        body {
-            font-family: 'Arial', 'Helvetica', sans-serif;
-            margin: 20px;
-        }
-        .status {
-            padding: 10px;
-            background: #f0f0f0;
-            margin: 10px 0;
-            border-radius: 5px;
-            font-family: 'Arial', 'Helvetica', sans-serif;
-        }
-        .chart-container {
-            width: 80%;
-            height: 400px;
-            margin: 20px auto;
-        }
-    </style>
+    <link rel="stylesheet" href="./style.css">
 </head>
 <body>
     <h1>Данные Всемирной организации здравоохранения</h1>
@@ -31,6 +14,19 @@
     
     <div class="chart-container">
         <canvas id="myChart"></canvas>
+    </div>
+
+    <div class="panel-container">
+        <div class="color-container">
+            <input type="color" id="plotColor" class="color-input" value="#ff0000">
+            <div class="color-preview" id="plotColorPreview"></div>
+            Цвет графика
+        </div>
+        <div class="color-container">
+            <input type="color" id="plotBackgroundColor" class="color-input" value="#ffffff">
+            <div class="color-preview" id="plotBackgroundColorPreview"></div>
+            Цвет фона под графиком
+        </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -45,7 +41,8 @@
             years: [0],
             minIndex: 0,
             maxIndex: 0,
-            color: 'rgb(75, 192, 192)'
+            color: '#ff0000',
+            backgroundColor: '#ffffff'
         };
 
         ipcRenderer.on('parse-data', (event, data) => {
@@ -79,7 +76,7 @@
                 chart.data.datasets[0].label = dataSet.label;
                 chart.data.datasets[0].data = dataSet.data;
                 chart.data.datasets[0].borderColor = dataSet.color;
-                chart.data.datasets[0].backgroundColor = dataSet.color + '20';
+                chart.data.datasets[0].backgroundColor = dataSet.backgroundColor;
                 chart.data.labels = dataSet.years;
                 chart.update();
             } else {
@@ -103,7 +100,7 @@
                         label: dataSet.label,
                         data: dataSet.data,
                         borderColor: dataSet.color,
-                        backgroundColor: dataSet.color + '20',
+                        //backgroundColor: dataSet.color + '20',
                         borderWidth: 2,
                         tension: 0.1,
                         fill: true
@@ -149,6 +146,34 @@
                 }
             });
         }
+
+        const plotColor = document.getElementById('plotColor');
+        const plotColorPreview = document.getElementById('plotColorPreview');
+
+        const plotBackgroundColor = document.getElementById('plotBackgroundColor');
+        const plotBackgroundColorPreview = document.getElementById('plotBackgroundColorPreview');
+
+        plotColorPreview.style.backgroundColor = plotColor.value;
+        plotBackgroundColorPreview.style.backgroundColor = plotBackgroundColor.value;
+
+        // Обработчик изменения цвета
+        plotColor.addEventListener('input', (event) => {
+            const selectedColor = event.target.value;
+            plotColorPreview.style.backgroundColor = selectedColor;
+            dataSet.color = selectedColor;
+            if(chart){
+                updateChart();
+            }
+        });
+
+        plotBackgroundColor.addEventListener('input', (event) => {
+            const selectedColor = event.target.value;
+            plotBackgroundColorPreview.style.backgroundColor = selectedColor;
+            dataSet.backgroundColor = selectedColor;
+            if(chart){
+                updateChart();
+            }
+        });
 
     </script>
 </body>
