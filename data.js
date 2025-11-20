@@ -1,7 +1,8 @@
 const axios = require('axios');
+const { dialog } = require('electron');
 
 //===================================================================
-const DEBUG_ENABLE = 1; // - Включение дебага
+const DEBUG_ENABLE = 0; // - Включение дебага
 
 const dataSets = [ // - Доступные наборы данных (код, название)
     ["H2020_1", "Преждевременная смертность"],
@@ -84,6 +85,11 @@ async function loadDataSet(data_set_code, contry_code, mainWindow = null) {
         });
 
         const parsedData = parseData(response.data);
+
+        if(!parsedData.values.length || !parsedData.years.length){
+            dialog.showErrorBox('Ошибка загрузки данных', 'Данные для этого параметра и этого государства отсутствуют.');
+        }
+
         if(mainWindow != null){
             mainWindow.webContents.send('parse-data', {
                 parsedData: parsedData,

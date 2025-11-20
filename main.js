@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu } = require('electron');
+const { app, BrowserWindow, Menu, dialog } = require('electron');
 const path = require('path');
 const axios = require('axios');
 
