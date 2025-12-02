@@ -10,6 +10,8 @@ let mainWindow,                 // - главное окно
 const {
     DEBUG_ENABLE,
     dataSets,
+    countriesList,
+    selectedCountriesCodes,
     getCountriesList,
     refreshCountriesList,
     loadDataSet,
@@ -67,12 +69,21 @@ function createSimpleMenu(mainWindow) {
     const currentCountriesList = getCountriesList();
     const countriesSubmenu = currentCountriesList.map((country, index) => ({
         label: country.name,
-        type: 'radio',
+        type: 'checkbox',
         checked: index === 0,
         click: () => {
             selectedCountry = country;
             SendMainDataToRender();
-            loadDataSet(selectedData[0], selectedCountry.code, mainWindow);
+
+            const findIndex = selectedCountriesCodes.findIndex(item => item === selectedCountry.code);
+            if(findIndex == -1){
+                selectedCountriesCodes.push(selectedCountry.code);
+            }
+            else {
+                selectedCountriesCodes.splice(findIndex, 1);
+            }
+
+            loadDataSet(selectedData[0], selectedCountriesCodes, mainWindow);
 
             if(DEBUG_ENABLE) console.log(`[countriesSubmenu Clicked]: ${country.name} (${country.code})`);
         }
