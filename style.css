@@ -44,15 +44,23 @@ body.dark-theme {
     --table-border: #404040;
 }
 
+html {
+    height: 100%;
+    overflow: hidden;
+}
+
 body {
     font-family: 'Arial', 'Helvetica', sans-serif;
     margin: 0;
-    padding: 20px;
-    padding-top: 70px; /* Отступ для кастомного заголовка */
+    padding: 10px;
+    padding-top: 40px; /* Отступ для кастомного заголовка */
     background-color: var(--bg-color);
     color: var(--text-color);
     transition: background-color 0.3s ease, color 0.3s ease;
     overflow-x: hidden;
+    overflow-y: hidden; /* Убираем вертикальный скроллбар */
+    box-sizing: border-box;
+    height: 100vh;
 }
 
 /* Кастомный заголовок окна */
@@ -129,6 +137,8 @@ button:not(.window-control-btn), input, select, a, .theme-toggle, .tab-button, .
 h1 {
     color: var(--text-color);
     transition: color 0.3s ease;
+    margin: 0 0 10px 0;
+    font-size: 24px;
 }
 
 /* Переключатель темы */
@@ -172,20 +182,20 @@ h1 {
 
 /* Стили для системы вкладок */
 .tabs-container {
-    margin-top: 20px;
+    margin-top: 10px;
 }
 
 .tabs-header {
     display: flex;
     border-bottom: 2px solid var(--border-color);
-    margin-bottom: 20px;
+    margin-bottom: 10px;
     gap: 0;
     transition: border-color 0.3s ease;
 }
 
 .tab-button {
-    padding: 12px 24px;
-    font-size: 14px;
+    padding: 8px 16px;
+    font-size: 13px;
     font-weight: 500;
     background-color: transparent;
     border: none;
@@ -220,9 +230,9 @@ h1 {
 }
 
 .status, .panel-container {
-    padding: 10px;
+    padding: 8px;
     background: var(--panel-bg);
-    margin: 10px 0;
+    margin: 5px 0;
     border-radius: 5px;
     font-family: 'Arial', 'Helvetica', sans-serif;
     transition: background-color 0.3s ease;
@@ -231,9 +241,9 @@ h1 {
 /* Стили для панели управления сравнением стран */
 .comparison-controls {
     display: flex;
-    gap: 15px;
-    margin-bottom: 15px;
-    padding: 10px;
+    gap: 10px;
+    margin-bottom: 10px;
+    padding: 8px;
     background: var(--secondary-bg);
     border-radius: 6px;
     border: 1px solid var(--border-color);
@@ -307,8 +317,8 @@ h1 {
 
 .chart-container {
     width: 80%;
-    height: 400px;
-    margin: 20px auto;
+    height: 300px;
+    margin: 10px auto;
 }
 
 .panel-container{
@@ -534,12 +544,13 @@ h1 {
 .statistics-table {
     width: 100%;
     border-collapse: collapse;
-    margin-top: 10px;
+    margin-top: 8px;
+    font-size: 12px;
 }
 
 .statistics-table th,
 .statistics-table td {
-    padding: 10px;
+    padding: 6px;
     text-align: left;
     border-bottom: 1px solid var(--table-border);
     color: var(--text-color);
@@ -580,7 +591,7 @@ h1 {
 /* Стили для секции корреляции */
 .correlation-section {
     margin: 0;
-    padding: 20px;
+    padding: 10px;
     background: var(--secondary-bg);
     border-radius: 8px;
     border: 1px solid var(--border-color);
@@ -589,17 +600,18 @@ h1 {
 
 .correlation-section h2 {
     margin-top: 0;
-    margin-bottom: 20px;
-    color: #007bff;
-    font-size: 20px;
+    margin-bottom: 10px;
+    color: var(--primary-color);
+    font-size: 16px;
+    transition: color 0.3s ease;
 }
 
 .correlation-controls {
     display: flex;
     flex-wrap: wrap;
-    gap: 15px;
+    gap: 10px;
     align-items: flex-end;
-    margin-bottom: 20px;
+    margin-bottom: 10px;
 }
 
 .correlation-control-item {
@@ -617,8 +629,8 @@ h1 {
 }
 
 .correlation-select {
-    padding: 8px;
-    font-size: 13px;
+    padding: 6px;
+    font-size: 12px;
     border: 1px solid var(--border-color);
     border-radius: 3px;
     font-family: 'Arial', 'Helvetica', sans-serif;
@@ -680,10 +692,10 @@ input[type="radio"] {
 
 .correlation-chart-container {
     width: 100%;
-    height: 400px;
-    margin-top: 20px;
-    margin-bottom: 35px;
-    padding: 15px;
+    height: 250px;
+    margin-top: 8px;
+    margin-bottom: 10px;
+    padding: 8px;
     background: var(--card-bg);
     border-radius: 5px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
@@ -691,8 +703,8 @@ input[type="radio"] {
 }
 
 .correlation-info {
-    margin-top: 35px;
-    padding: 15px;
+    margin-top: 10px;
+    padding: 10px;
     background-color: var(--secondary-bg);
     border-radius: 5px;
     border-left: 4px solid var(--primary-color);
@@ -701,25 +713,28 @@ input[type="radio"] {
 
 .correlation-info h3 {
     margin-top: 0;
+    margin-bottom: 8px;
     color: var(--primary-color);
-    font-size: 16px;
+    font-size: 14px;
     transition: color 0.3s ease;
 }
 
 .correlation-info-item {
-    margin: 8px 0;
-    padding: 5px 0;
+    margin: 4px 0;
+    padding: 3px 0;
 }
 
 .correlation-info-label {
     font-weight: bold;
     color: var(--text-color);
-    margin-right: 10px;
+    margin-right: 8px;
+    font-size: 12px;
     transition: color 0.3s ease;
 }
 
 .correlation-info-value {
     color: var(--text-color);
+    font-size: 12px;
     transition: color 0.3s ease;
 }
 

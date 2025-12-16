@@ -1738,19 +1738,19 @@ function displayCorrelationInfo(data, synchronized, correlation) {
         alertBorder = '#dc3545';
     }
     
-    let html = `<h3 style="margin-top: 0; color: var(--primary-color); font-size: 16px;">Результаты корреляционного анализа для ${countryName}</h3>`;
-    html += `<p style="margin: 8px 0; color: var(--text-color);"><strong>Коэффициент корреляции Пирсона:</strong> ${correlation.toFixed(4)}</p>`;
-    html += `<p style="margin: 8px 0; color: var(--text-color);"><strong>Интерпретация:</strong> ${interpretation} ${direction} корреляция</p>`;
-    html += `<p style="margin: 8px 0; color: var(--text-color);"><strong>Количество точек данных:</strong> ${synchronized.years.length}</p>`;
-    html += `<p style="margin: 8px 0; color: var(--text-color);"><strong>Период:</strong> ${synchronized.years[0]} - ${synchronized.years[synchronized.years.length - 1]}</p>`;
+    let html = `<h3 style="margin-top: 0; margin-bottom: 6px; color: var(--primary-color); font-size: 14px;">Результаты корреляционного анализа для ${countryName}</h3>`;
+    html += `<p style="margin: 4px 0; color: var(--text-color); font-size: 12px;"><strong>Коэффициент корреляции Пирсона:</strong> ${correlation.toFixed(4)}</p>`;
+    html += `<p style="margin: 4px 0; color: var(--text-color); font-size: 12px;"><strong>Интерпретация:</strong> ${interpretation} ${direction} корреляция</p>`;
+    html += `<p style="margin: 4px 0; color: var(--text-color); font-size: 12px;"><strong>Количество точек данных:</strong> ${synchronized.years.length}</p>`;
+    html += `<p style="margin: 4px 0; color: var(--text-color); font-size: 12px;"><strong>Период:</strong> ${synchronized.years[0]} - ${synchronized.years[synchronized.years.length - 1]}</p>`;
     
     // Добавляем вывод о зависимости
-    html += `<div style="margin-top: 15px; padding: 12px; background-color: ${alertBg}; border-left: 4px solid ${alertBorder}; border-radius: 4px;">`;
-    html += `<p style="margin: 0; color: ${alertText}; font-weight: bold; margin-bottom: 8px;">Вывод о зависимости факторов:</p>`;
-    html += `<p style="margin: 0; color: var(--text-color); line-height: 1.5;">${dependency.conclusion}</p>`;
+    html += `<div style="margin-top: 6px; padding: 6px; background-color: ${alertBg}; border-left: 4px solid ${alertBorder}; border-radius: 4px;">`;
+    html += `<p style="margin: 0; color: ${alertText}; font-weight: bold; margin-bottom: 4px; font-size: 12px;">Вывод о зависимости факторов:</p>`;
+    html += `<p style="margin: 0; color: var(--text-color); line-height: 1.4; font-size: 11px;">${dependency.conclusion}</p>`;
     html += `</div>`;
     
-    html += `<p style="margin: 8px 0; color: var(--text-color); opacity: 0.7; font-size: 13px;">Подробная статистика доступна в модальном окне</p>`;
+    html += `<p style="margin: 4px 0; color: var(--text-color); opacity: 0.7; font-size: 11px;">Подробная статистика доступна в модальном окне</p>`;
 
     infoDiv.innerHTML = html;
     infoDiv.style.display = 'block';
@@ -1833,8 +1833,8 @@ function displayCorrelationStatistics(data, synchronized, correlation) {
         alertText = isDark ? '#ff9999' : '#721c24';
         alertBorder = '#dc3545';
     }
-    html += `<div style="padding: 15px; background-color: ${alertBg}; border-left: 4px solid ${alertBorder}; border-radius: 4px; margin-top: 10px;">`;
-    html += `<p style="margin: 0; color: ${alertText}; line-height: 1.6;">${dependency.conclusion}</p>`;
+    html += `<div style="padding: 6px; background-color: ${alertBg}; border-left: 4px solid ${alertBorder}; border-radius: 4px; margin-top: 6px;">`;
+    html += `<p style="margin: 0; color: ${alertText}; line-height: 1.4; font-size: 11px;">${dependency.conclusion}</p>`;
     html += '</div>';
     html += '</div>';
 
