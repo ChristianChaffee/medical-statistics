@@ -30,6 +30,7 @@
         <div class="tabs-header">
             <button class="tab-button active" data-tab="comparison">Сравнение нескольких стран</button>
             <button class="tab-button" data-tab="correlation">Корреляционный анализ</button>
+            <button class="tab-button" data-tab="forecast">Прогнозирование</button>
         </div>
         
         <!-- Уведомление (доступно для всех вкладок) -->
@@ -119,6 +120,41 @@
                     </div>
                 </div>
                 <div id="correlationInfo" class="correlation-info" style="display: none;"></div>
+            </div>
+        </div>
+
+        <!-- Вкладка: Прогнозирование -->
+        <div class="tab-content" id="tab-forecast">
+            <div class="forecast-section">
+                <h2>Прогнозирование показателей</h2>
+                <div class="forecast-controls">
+                    <div class="forecast-control-item">
+                        <label for="forecastCountry">Страна:</label>
+                        <select id="forecastCountry" class="forecast-select">
+                            <option value="">Выберите страну</option>
+                        </select>
+                    </div>
+                    <div class="forecast-control-item">
+                        <label for="forecastFactor">Показатель:</label>
+                        <select id="forecastFactor" class="forecast-select">
+                            <option value="">Выберите показатель</option>
+                        </select>
+                    </div>
+                    <div class="forecast-control-item">
+                        <label for="forecastYears">Количество лет прогноза:</label>
+                        <input type="number" id="forecastYears" class="forecast-input" min="1" max="20" value="5">
+                    </div>
+                    <div class="forecast-control-item">
+                        <button id="calculateForecastButton" class="forecast-button">Рассчитать прогноз</button>
+                    </div>
+                </div>
+                <div class="forecast-chart-container" id="forecastChartContainer" style="display: none;">
+                    <canvas id="forecastChart"></canvas>
+                    <div style="margin-top: 10px; text-align: center;">
+                        <button id="exportForecastChartPdfBtn" class="export-pdf-button" title="Экспорт графика прогноза в PDF">📄 Экспорт графика</button>
+                    </div>
+                </div>
+                <div id="forecastInfo" class="forecast-info" style="display: none;"></div>
             </div>
         </div>
     </div>

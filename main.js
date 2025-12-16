@@ -140,6 +140,40 @@ ipcMain.on('load-correlation-data', async (event, { countryCode, factor1Code, fa
   }
 });
 
+ipcMain.on('load-forecast-data', async (event, { countryCode, factorCode }) => {
+  try {
+    const forecastData = {
+      countryCode: countryCode,
+      factor: null
+    };
+
+    // Загружаем данные для показателя
+    if (factorCode) {
+      const http = `https://dw.euro.who.int/api/v3/measures/${factorCode}?filter=COUNTRY:${countryCode}&lang=RU`;
+      const response = await axios.get(http, {
+        httpsAgent: new (require('https').Agent)({
+          rejectUnauthorized: false
+        }),
+        timeout: 10000
+      });
+      forecastData.factor = parseData(response.data);
+      forecastData.factor.dataSetInfo = {
+        code: response.data.code,
+        name: response.data.short_name,
+        fullName: response.data.full_name,
+        unit: response.data.metadata?.find(m => m.code === 'UNIT_TYPE')?.value?.label || 'N/A'
+      };
+    }
+
+    event.reply('forecast-data-loaded', forecastData);
+  } catch (error) {
+    console.log(`[load-forecast-data ERROR]: ${error.message || error}`);
+    event.reply('forecast-data-loaded', {
+      error: error.message || 'Ошибка загрузки данных'
+    });
+  }
+});
+
 ipcMain.on('update-title-bar-theme', (event, isDark) => {
   // Больше не используется, так как используем frameless окно
 });

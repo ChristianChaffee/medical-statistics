@@ -124,6 +124,17 @@ function updateChartsTheme() {
         correlationChart.options.plugins.title.color = textColor;
         correlationChart.update('none');
     }
+    
+    // Обновляем график прогноза
+    if (forecastChart) {
+        forecastChart.options.scales.x.ticks.color = textColor;
+        forecastChart.options.scales.y.ticks.color = textColor;
+        forecastChart.options.scales.x.grid.color = gridColor;
+        forecastChart.options.scales.y.grid.color = gridColor;
+        forecastChart.options.plugins.title.color = textColor;
+        forecastChart.options.plugins.legend.labels.color = textColor;
+        forecastChart.update('none');
+    }
 }
 
 // Инициализация темы при загрузке
@@ -211,6 +222,26 @@ function initTabs() {
                     initCorrelationElements();
                 }, 100);
             }
+            
+            // Если переключились на вкладку прогнозирования, убеждаемся что список стран загружен
+            if (targetTab === 'forecast') {
+                // Проверяем, есть ли уже список стран
+                const countrySelect = document.getElementById('forecastCountry');
+                if (countrySelect) {
+                    // Если список стран уже загружен, но селектор пуст, обновляем его
+                    if (countriesList && countriesList.length > 0 && countrySelect.options.length <= 1) {
+                        updateForecastCountrySelector();
+                    }
+                    // Если списка стран нет, запрашиваем его
+                    else if (!countriesList || countriesList.length === 0) {
+                        ipcRenderer.send('get-countries');
+                    }
+                }
+                // Инициализируем элементы прогнозирования, если еще не инициализированы
+                setTimeout(() => {
+                    initForecastElements();
+                }, 100);
+            }
         });
     });
 }
@@ -289,6 +320,7 @@ ipcRenderer.on('countries-list', (event, countries) => {
     countriesList = countries;
     // Обновляем список стран в селекторе корреляции
     updateCorrelationCountrySelector();
+    updateForecastCountrySelector();
     // Обновляем список стран в панели сравнения
     updateComparisonCountriesList();
 });
@@ -2147,6 +2179,7 @@ document.addEventListener('click', function(event) {
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
         setTimeout(initCorrelationElements, 100);
+        setTimeout(initForecastElements, 100);
         initPdfExportButtons();
         // Список стран уже запрашивается в initTabs(), но запросим еще раз на всякий случай
         if (!countriesList || countriesList.length === 0) {
@@ -2155,11 +2188,678 @@ if (document.readyState === 'loading') {
     });
 } else {
     setTimeout(initCorrelationElements, 100);
+    setTimeout(initForecastElements, 100);
     initPdfExportButtons();
     // Список стран уже запрашивается в initTabs(), но запросим еще раз на всякий случай
     if (!countriesList || countriesList.length === 0) {
         ipcRenderer.send('get-countries');
     }
+}
+
+// ==================== ФУНКЦИИ ДЛЯ ПРОГНОЗИРОВАНИЯ ====================
+
+let forecastChart = null;
+let forecastData = null;
+
+// Инициализация элементов прогнозирования
+function initForecastElements() {
+    const countrySelect = document.getElementById('forecastCountry');
+    const factorSelect = document.getElementById('forecastFactor');
+    const calculateButton = document.getElementById('calculateForecastButton');
+
+    // Заполняем список стран
+    updateForecastCountrySelector();
+
+    // Заполняем список показателей
+    const dataSets = [
+        ["H2020_1", "Преждевременная смертность"],
+        ["H2020_2", "Табакокурение"],
+        ["H2020_9", "Ожирение"],
+        ["ENHIS_16", "Распространенность ожирения и избыточной массы тела у детей в возрасте 11 лет"],
+        ["ENHIS_17", "Распространенность ожирения и избыточной массы тела у детей в возрасте 13 лет"],
+        ["ENHIS_18", "Распространенность ожирения и избыточной массы тела у детей в возрасте 15 лет"]
+    ];
+
+    if (factorSelect) {
+        factorSelect.innerHTML = '<option value="">Выберите показатель</option>';
+        dataSets.forEach(dataset => {
+            const option = document.createElement('option');
+            option.value = dataset[0];
+            option.textContent = dataset[1];
+            factorSelect.appendChild(option);
+        });
+    }
+
+    // Обработчик кнопки расчета прогноза (добавляем только один раз)
+    if (calculateButton && !calculateButton.hasAttribute('data-listener-attached')) {
+        calculateButton.addEventListener('click', handleCalculateForecast);
+        calculateButton.setAttribute('data-listener-attached', 'true');
+    }
+}
+
+// Обновление селектора стран для прогнозирования
+function updateForecastCountrySelector() {
+    const countrySelect = document.getElementById('forecastCountry');
+    if (!countrySelect) return;
+
+    // Сохраняем текущее значение
+    const currentValue = countrySelect.value;
+
+    // Очищаем список
+    countrySelect.innerHTML = '<option value="">Выберите страну</option>';
+
+    // Заполняем список стран
+    if (countriesList && countriesList.length > 0) {
+        countriesList.forEach(country => {
+            const option = document.createElement('option');
+            option.value = country.code;
+            option.textContent = country.name;
+            countrySelect.appendChild(option);
+        });
+
+        // Восстанавливаем значение, если оно было
+        if (currentValue) {
+            countrySelect.value = currentValue;
+        }
+    }
+}
+
+// Обработчик расчета прогноза
+function handleCalculateForecast() {
+    const countrySelect = document.getElementById('forecastCountry');
+    const factorSelect = document.getElementById('forecastFactor');
+    const yearsInput = document.getElementById('forecastYears');
+    const calculateButton = document.getElementById('calculateForecastButton');
+
+    const countryCode = countrySelect?.value;
+    const factorCode = factorSelect?.value;
+    const forecastYears = parseInt(yearsInput?.value) || 5;
+
+    if (!countryCode || !factorCode) {
+        showNotification(['Для расчета прогноза необходимо выбрать страну и показатель']);
+        return;
+    }
+
+    if (forecastYears < 1 || forecastYears > 20) {
+        showNotification(['Количество лет прогноза должно быть от 1 до 20']);
+        return;
+    }
+
+    // Отключаем кнопку на время загрузки
+    if (calculateButton) {
+        calculateButton.disabled = true;
+        calculateButton.textContent = 'Загрузка...';
+    }
+
+    // Отправляем запрос на загрузку данных
+    const { ipcRenderer } = require('electron');
+    ipcRenderer.send('load-forecast-data', {
+        countryCode: countryCode,
+        factorCode: factorCode
+    });
+
+    // Сохраняем количество лет прогноза для использования после загрузки данных
+    if (!forecastData) {
+        forecastData = {};
+    }
+    forecastData.forecastYears = forecastYears;
+}
+
+// Обработчик получения данных прогнозирования
+ipcRenderer.on('forecast-data-loaded', (event, data) => {
+    const calculateButton = document.getElementById('calculateForecastButton');
+    
+    if (calculateButton) {
+        calculateButton.disabled = false;
+        calculateButton.textContent = 'Рассчитать прогноз';
+    }
+
+    if (data.error) {
+        showNotification([`Ошибка загрузки данных: ${data.error}`]);
+        return;
+    }
+
+    if (!data.factor) {
+        showNotification(['Не удалось загрузить данные для выбранного показателя']);
+        return;
+    }
+
+    // Сохраняем количество лет прогноза перед перезаписью forecastData
+    // Сначала проверяем сохраненное значение, затем поле ввода, затем дефолт
+    const yearsInput = document.getElementById('forecastYears');
+    const savedForecastYears = forecastData?.forecastYears || parseInt(yearsInput?.value) || 5;
+    forecastData = data;
+    // Восстанавливаем количество лет прогноза
+    forecastData.forecastYears = savedForecastYears;
+    const forecastYears = forecastData.forecastYears;
+    calculateAndDisplayForecast(data, forecastYears);
+});
+
+// Функция расчета линейной регрессии
+function calculateLinearRegression(years, values) {
+    if (!years || !values || years.length !== values.length || years.length < 2) {
+        return null;
+    }
+
+    // Убеждаемся, что данные синхронизированы - создаем пары и сортируем по годам
+    const pairs = years.map((year, i) => ({ year, value: values[i] }))
+        .sort((a, b) => a.year - b.year);
+    
+    const sortedYears = pairs.map(p => p.year);
+    const sortedValues = pairs.map(p => p.value);
+
+    const n = sortedYears.length;
+    const sumX = sortedYears.reduce((a, b) => a + b, 0);
+    const sumY = sortedValues.reduce((a, b) => a + b, 0);
+    const sumXY = sortedYears.reduce((sum, year, i) => sum + year * sortedValues[i], 0);
+    const sumX2 = sortedYears.reduce((sum, year) => sum + year * year, 0);
+
+    const denominator = (n * sumX2 - sumX * sumX);
+    if (Math.abs(denominator) < 1e-10) {
+        // Если знаменатель близок к нулю, данные не имеют вариации по X
+        return null;
+    }
+
+    const slope = (n * sumXY - sumX * sumY) / denominator;
+    const intercept = (sumY - slope * sumX) / n;
+
+    // Вычисляем R² (коэффициент детерминации)
+    const meanY = sumY / n;
+    const ssRes = sortedValues.reduce((sum, val, i) => {
+        const predicted = slope * sortedYears[i] + intercept;
+        return sum + Math.pow(val - predicted, 2);
+    }, 0);
+    const ssTot = sortedValues.reduce((sum, val) => sum + Math.pow(val - meanY, 2), 0);
+    const rSquared = ssTot === 0 ? 0 : 1 - (ssRes / ssTot);
+
+    return { slope, intercept, rSquared };
+}
+
+// Функция расчета и отображения прогноза
+function calculateAndDisplayForecast(data, forecastYears) {
+    const factor = data.factor;
+    
+    if (!factor || !factor.years || !factor.values || factor.years.length < 2) {
+        showNotification(['Недостаточно данных для прогнозирования. Требуется минимум 2 точки данных.']);
+        return;
+    }
+
+    // Убеждаемся, что данные синхронизированы - используем dataPoints если доступны
+    let sortedYears, sortedValues;
+    if (factor.dataPoints && factor.dataPoints.length > 0) {
+        // Используем dataPoints, которые уже отсортированы
+        sortedYears = factor.dataPoints.map(dp => Number(dp.year));
+        sortedValues = factor.dataPoints.map(dp => dp.value);
+    } else {
+        // Создаем пары и сортируем
+        const pairs = factor.years.map((year, i) => ({ year: Number(year), value: factor.values[i] }))
+            .sort((a, b) => a.year - b.year);
+        sortedYears = pairs.map(p => p.year);
+        sortedValues = pairs.map(p => p.value);
+    }
+
+    // Вычисляем линейную регрессию
+    const regression = calculateLinearRegression(sortedYears, sortedValues);
+    
+    if (!regression || !isFinite(regression.slope) || !isFinite(regression.intercept)) {
+        showNotification(['Не удалось вычислить прогноз. Возможно, данные не содержат достаточной вариации.']);
+        return;
+    }
+
+    // Получаем последний год данных (преобразуем в число)
+    const lastYear = Number(sortedYears[sortedYears.length - 1]);
+    const lastValue = sortedValues[sortedValues.length - 1];
+
+    // Вычисляем остатки для расчета стандартной ошибки
+    const n = sortedYears.length;
+    const residuals = sortedValues.map((val, idx) => {
+        const predicted = regression.slope * sortedYears[idx] + regression.intercept;
+        return val - predicted;
+    });
+    const mse = n > 2 ? residuals.reduce((sum, r) => sum + r * r, 0) / (n - 2) : 0;
+    const stdError = Math.sqrt(mse);
+    
+    // Вычисляем среднее значение X и сумму квадратов отклонений X
+    const meanX = sortedYears.reduce((a, b) => a + b, 0) / n;
+    const sumSqDevX = sortedYears.reduce((sum, y) => sum + Math.pow(y - meanX, 2), 0);
+
+    // Генерируем годы для прогноза
+    const forecastYearsArray = [];
+    const forecastValues = [];
+    const forecastLowerBound = [];
+    const forecastUpperBound = [];
+
+    for (let i = 1; i <= forecastYears; i++) {
+        const year = lastYear + i;
+        const predictedValue = regression.slope * year + regression.intercept;
+        
+        // Упрощенный расчет 95% доверительного интервала
+        // Используем t-статистику (приблизительно 2 для больших выборок)
+        const tValue = 1.96; // Для 95% доверительного интервала
+        let margin = 0;
+        
+        if (n > 2 && sumSqDevX > 0 && stdError > 0) {
+            // Стандартная ошибка прогноза
+            const sePrediction = stdError * Math.sqrt(1 + 1/n + Math.pow(year - meanX, 2) / sumSqDevX);
+            margin = tValue * sePrediction;
+        } else {
+            // Если недостаточно данных, используем простую оценку
+            margin = stdError > 0 ? 2 * stdError : Math.abs(predictedValue * 0.1);
+        }
+        
+        forecastYearsArray.push(year);
+        forecastValues.push(predictedValue);
+        forecastLowerBound.push(Math.max(0, predictedValue - margin)); // Не позволяем отрицательным значениям
+        forecastUpperBound.push(predictedValue + margin);
+    }
+
+    // Сохраняем вычисленные данные для экспорта
+    if (!forecastData) {
+        forecastData = {};
+    }
+    forecastData.regression = regression;
+    forecastData.sortedYears = sortedYears;
+    forecastData.sortedValues = sortedValues;
+    forecastData.forecastYearsArray = forecastYearsArray;
+    forecastData.forecastValues = forecastValues;
+    forecastData.lastYear = lastYear;
+
+    // Отображаем график
+    displayForecastChart(data, regression, forecastYearsArray, forecastValues, forecastLowerBound, forecastUpperBound, sortedYears, sortedValues);
+
+    // Отображаем информацию
+    displayForecastInfo(data, regression, forecastYearsArray, forecastValues);
+}
+
+// Функция отображения графика прогноза
+function displayForecastChart(data, regression, forecastYears, forecastValues, forecastLowerBound, forecastUpperBound, sortedYears, sortedValues) {
+    const container = document.getElementById('forecastChartContainer');
+    if (!container) return;
+
+    container.style.display = 'block';
+
+    const ctx = document.getElementById('forecastChart');
+    if (!ctx) return;
+
+    const factor = data.factor;
+    const countryName = getCountryNameByCode(data.countryCode);
+    const factorName = factor.dataSetInfo.name;
+    const unit = factor.dataSetInfo.unit;
+
+    // Используем отсортированные данные
+    // Убеждаемся, что годы - это числа
+    const historicalYears = (sortedYears || factor.years).map(y => Number(y));
+    const historicalValues = sortedValues || factor.values;
+
+    // Вычисляем линию тренда для исторических данных
+    const trendLine = historicalYears.map(year => regression.slope * year + regression.intercept);
+
+    // Определяем цвета для текущей темы
+    const isDark = document.body.classList.contains('dark-theme');
+    const textColor = isDark ? '#e0e0e0' : '#212529';
+    const gridColor = isDark ? '#404040' : '#e0e0e0';
+    const backgroundColor = isDark ? '#2d2d2d' : '#ffffff';
+
+    // Уничтожаем предыдущий график, если он существует
+    if (forecastChart) {
+        forecastChart.destroy();
+    }
+
+    // Объединяем все годы, убираем дубликаты и сортируем
+    // Убеждаемся, что все годы - это числа
+    const forecastYearsNumbers = forecastYears.map(y => Number(y));
+    const allYearsSet = new Set([
+        ...historicalYears.map(y => Number(y)),
+        ...forecastYearsNumbers
+    ]);
+    const allYears = Array.from(allYearsSet).sort((a, b) => a - b);
+    
+    // Создаем карты для быстрого поиска значений по годам
+    // Используем числовые годы для ключей
+    const historicalMap = new Map();
+    historicalYears.forEach((year, idx) => {
+        historicalMap.set(Number(year), historicalValues[idx]);
+    });
+    
+    const trendMap = new Map();
+    historicalYears.forEach((year, idx) => {
+        trendMap.set(Number(year), trendLine[idx]);
+    });
+    
+    const forecastMap = new Map();
+    forecastYearsNumbers.forEach((year, idx) => {
+        forecastMap.set(Number(year), forecastValues[idx]);
+    });
+    
+    const upperBoundMap = new Map();
+    forecastYearsNumbers.forEach((year, idx) => {
+        upperBoundMap.set(Number(year), forecastUpperBound[idx]);
+    });
+    
+    const lowerBoundMap = new Map();
+    forecastYearsNumbers.forEach((year, idx) => {
+        lowerBoundMap.set(Number(year), forecastLowerBound[idx]);
+    });
+    
+    // Создаем массивы данных для каждого датасета, синхронизированные с allYears
+    // Используем тот же подход, что и в основном графике - простые массивы значений
+    const historicalData = [];
+    const trendData = [];
+    const forecastDataArray = [];
+    const upperBoundData = [];
+    const lowerBoundData = [];
+    
+    allYears.forEach(year => {
+        historicalData.push(historicalMap.has(year) ? historicalMap.get(year) : null);
+        trendData.push(trendMap.has(year) ? trendMap.get(year) : null);
+        forecastDataArray.push(forecastMap.has(year) ? forecastMap.get(year) : null);
+        upperBoundData.push(upperBoundMap.has(year) ? upperBoundMap.get(year) : null);
+        lowerBoundData.push(lowerBoundMap.has(year) ? lowerBoundMap.get(year) : null);
+    });
+
+    forecastChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: allYears.map(y => String(y)),
+            datasets: [
+                {
+                    label: 'Исторические данные',
+                    data: historicalData,
+                    borderColor: '#007bff',
+                    backgroundColor: 'rgba(0, 123, 255, 0.1)',
+                    borderWidth: 2,
+                    pointRadius: 4,
+                    pointHoverRadius: 6,
+                    fill: false,
+                    tension: 0.1,
+                    spanGaps: true
+                },
+                {
+                    label: 'Линия тренда',
+                    data: trendData,
+                    borderColor: '#28a745',
+                    backgroundColor: 'transparent',
+                    borderWidth: 2,
+                    borderDash: [5, 5],
+                    pointRadius: 0,
+                    fill: false,
+                    tension: 0,
+                    spanGaps: true
+                },
+                {
+                    label: 'Прогноз',
+                    data: forecastDataArray,
+                    borderColor: '#ffc107',
+                    backgroundColor: 'rgba(255, 193, 7, 0.1)',
+                    borderWidth: 2,
+                    pointRadius: 4,
+                    pointHoverRadius: 6,
+                    fill: false,
+                    tension: 0.1,
+                    spanGaps: true
+                },
+                {
+                    label: 'Верхняя граница доверительного интервала',
+                    data: upperBoundData,
+                    borderColor: 'rgba(255, 193, 7, 0.3)',
+                    backgroundColor: 'transparent',
+                    borderWidth: 1,
+                    borderDash: [3, 3],
+                    pointRadius: 0,
+                    fill: '2', // Заполнение до датасета с индексом 2 (Прогноз)
+                    tension: 0,
+                    spanGaps: true
+                },
+                {
+                    label: 'Нижняя граница доверительного интервала',
+                    data: lowerBoundData,
+                    borderColor: 'rgba(255, 193, 7, 0.3)',
+                    backgroundColor: 'rgba(255, 193, 7, 0.1)',
+                    borderWidth: 1,
+                    borderDash: [3, 3],
+                    pointRadius: 0,
+                    fill: '2', // Заполнение до датасета с индексом 2 (Прогноз)
+                    tension: 0,
+                    spanGaps: true
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                title: {
+                    display: true,
+                    text: `Прогноз: ${factorName} - ${countryName}`,
+                    color: textColor,
+                    font: {
+                        size: 16,
+                        weight: 'bold'
+                    }
+                },
+                legend: {
+                    display: true,
+                    position: 'top',
+                    labels: {
+                        color: textColor,
+                        usePointStyle: true
+                    }
+                },
+                tooltip: {
+                    mode: 'index',
+                    intersect: false,
+                    callbacks: {
+                        label: function(context) {
+                            if (context.parsed.y === null) return null;
+                            let label = context.dataset.label || '';
+                            if (label) {
+                                label += ': ';
+                            }
+                            label += context.parsed.y.toFixed(2) + ' ' + unit;
+                            return label;
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    type: 'category',
+                    position: 'bottom',
+                    title: {
+                        display: true,
+                        text: 'Год',
+                        color: textColor
+                    },
+                    ticks: {
+                        color: textColor,
+                        maxRotation: 45,
+                        minRotation: 0,
+                        autoSkip: true,
+                        maxTicksLimit: 30
+                    },
+                    grid: {
+                        color: gridColor
+                    }
+                },
+                y: {
+                    title: {
+                        display: true,
+                        text: factorName + (unit ? ` (${unit})` : ''),
+                        color: textColor
+                    },
+                    ticks: {
+                        color: textColor
+                    },
+                    grid: {
+                        color: gridColor
+                    }
+                }
+            },
+            interaction: {
+                mode: 'index',
+                intersect: false
+            }
+        }
+    });
+}
+
+// Функция отображения информации о прогнозе
+function displayForecastInfo(data, regression, forecastYears, forecastValues) {
+    const infoDiv = document.getElementById('forecastInfo');
+    if (!infoDiv) return;
+
+    const countryName = getCountryNameByCode(data.countryCode);
+    const factorName = data.factor.dataSetInfo.name;
+    const unit = data.factor.dataSetInfo.unit;
+
+    const lastYear = Math.max(...data.factor.years);
+    const lastValue = data.factor.values[data.factor.years.indexOf(lastYear)];
+    const firstForecastYear = forecastYears[0];
+    const firstForecastValue = forecastValues[0];
+    const lastForecastYear = forecastYears[forecastYears.length - 1];
+    const lastForecastValue = forecastValues[forecastValues.length - 1];
+
+    const change = lastForecastValue - lastValue;
+    const percentChange = lastValue !== 0 ? ((change / lastValue) * 100).toFixed(2) : 'N/A';
+
+    // Определяем направление тренда
+    const trendDirection = regression.slope > 0 ? 'рост' : regression.slope < 0 ? 'снижение' : 'стабильность';
+    const trendStrength = Math.abs(regression.rSquared) >= 0.7 ? 'сильный' : 
+                         Math.abs(regression.rSquared) >= 0.5 ? 'умеренный' : 'слабый';
+
+    const isDark = document.body.classList.contains('dark-theme');
+    const textColor = isDark ? '#e0e0e0' : '#212529';
+
+    let html = `<h3 style="margin-top: 0; margin-bottom: 6px; color: var(--primary-color); font-size: 14px;">Результаты прогнозирования для ${countryName}</h3>`;
+    html += `<p style="margin: 4px 0; color: ${textColor}; font-size: 12px;"><strong>Показатель:</strong> ${factorName}</p>`;
+    html += `<p style="margin: 4px 0; color: ${textColor}; font-size: 12px;"><strong>Коэффициент детерминации (R²):</strong> ${regression.rSquared.toFixed(4)}</p>`;
+    html += `<p style="margin: 4px 0; color: ${textColor}; font-size: 12px;"><strong>Тренд:</strong> ${trendStrength} ${trendDirection}</p>`;
+    html += `<p style="margin: 4px 0; color: ${textColor}; font-size: 12px;"><strong>Последнее значение (${lastYear}):</strong> ${lastValue.toFixed(2)} ${unit}</p>`;
+    html += `<p style="margin: 4px 0; color: ${textColor}; font-size: 12px;"><strong>Прогноз на ${firstForecastYear}:</strong> ${firstForecastValue.toFixed(2)} ${unit}</p>`;
+    html += `<p style="margin: 4px 0; color: ${textColor}; font-size: 12px;"><strong>Прогноз на ${lastForecastYear}:</strong> ${lastForecastValue.toFixed(2)} ${unit}</p>`;
+    html += `<p style="margin: 4px 0; color: ${textColor}; font-size: 12px;"><strong>Изменение к ${lastForecastYear}:</strong> ${change >= 0 ? '+' : ''}${change.toFixed(2)} ${unit} (${percentChange}%)</p>`;
+    html += `<p style="margin: 4px 0; color: ${textColor}; opacity: 0.7; font-size: 11px; margin-top: 8px;">⚠️ Прогноз основан на линейной регрессии исторических данных. Реальные значения могут отличаться.</p>`;
+
+    infoDiv.innerHTML = html;
+    infoDiv.style.display = 'block';
+}
+
+// Функция экспорта графика прогноза в PDF
+function exportForecastChartToPdf() {
+    if (!forecastChart) {
+        showNotification(['Нет данных для экспорта']);
+        return;
+    }
+
+    try {
+        // Получаем изображение графика прогноза в base64
+        const imageData = forecastChart.toBase64Image('image/png', 1.0);
+        
+        // Генерируем информацию о прогнозе
+        let statisticsHtml = '';
+        if (forecastData && forecastData.factor) {
+            // Используем сохраненные вычисленные данные, если они есть
+            let regression = forecastData.regression;
+            let forecastYears = forecastData.forecastYearsArray;
+            let forecastValues = forecastData.forecastValues;
+            
+            // Если сохраненных данных нет, вычисляем заново (но используем правильные данные)
+            if (!regression || !forecastYears || !forecastValues) {
+                const factor = forecastData.factor;
+                
+                // Убеждаемся, что данные синхронизированы
+                let sortedYears, sortedValues;
+                if (factor.dataPoints && factor.dataPoints.length > 0) {
+                    sortedYears = factor.dataPoints.map(dp => Number(dp.year));
+                    sortedValues = factor.dataPoints.map(dp => dp.value);
+                } else {
+                    const pairs = factor.years.map((year, i) => ({ year: Number(year), value: factor.values[i] }))
+                        .sort((a, b) => a.year - b.year);
+                    sortedYears = pairs.map(p => p.year);
+                    sortedValues = pairs.map(p => p.value);
+                }
+                
+                regression = calculateLinearRegression(sortedYears, sortedValues);
+                if (regression) {
+                    const lastYear = Number(sortedYears[sortedYears.length - 1]);
+                    forecastYears = [];
+                    forecastValues = [];
+                    const forecastYearsCount = forecastData.forecastYears || 5;
+                    for (let i = 1; i <= forecastYearsCount; i++) {
+                        forecastYears.push(lastYear + i);
+                        forecastValues.push(regression.slope * (lastYear + i) + regression.intercept);
+                    }
+                }
+            }
+            
+            if (regression && forecastYears && forecastValues) {
+                statisticsHtml = generateForecastStatisticsHtml(forecastData, regression, forecastYears, forecastValues);
+            }
+        }
+        
+        // Отправляем и график, и статистику
+        ipcRenderer.send('export-chart-to-pdf', {
+            chartImage: imageData,
+            statistics: statisticsHtml || ''
+        });
+    } catch (error) {
+        console.error('Ошибка экспорта графика прогноза:', error);
+        showNotification(['Ошибка при экспорте графика прогноза']);
+    }
+}
+
+// Функция генерации HTML статистики прогноза для PDF
+function generateForecastStatisticsHtml(data, regression, forecastYears, forecastValues) {
+    if (!data || !data.factor || !regression) {
+        return '<p>Нет данных для отображения</p>';
+    }
+
+    const countryName = getCountryNameByCode(data.countryCode);
+    const factorName = data.factor.dataSetInfo.name;
+    const unit = data.factor.dataSetInfo.unit;
+
+    // Используем сохраненные отсортированные данные, если они есть
+    let sortedYears = data.sortedYears;
+    let sortedValues = data.sortedValues;
+    
+    // Если сохраненных данных нет, используем исходные (но преобразуем в числа)
+    if (!sortedYears || !sortedValues) {
+        if (data.factor.dataPoints && data.factor.dataPoints.length > 0) {
+            sortedYears = data.factor.dataPoints.map(dp => Number(dp.year));
+            sortedValues = data.factor.dataPoints.map(dp => dp.value);
+        } else {
+            const pairs = data.factor.years.map((year, i) => ({ year: Number(year), value: data.factor.values[i] }))
+                .sort((a, b) => a.year - b.year);
+            sortedYears = pairs.map(p => p.year);
+            sortedValues = pairs.map(p => p.value);
+        }
+    }
+    
+    const lastYear = sortedYears[sortedYears.length - 1];
+    const lastValue = sortedValues[sortedValues.length - 1];
+    const lastForecastYear = forecastYears[forecastYears.length - 1];
+    const lastForecastValue = forecastValues[forecastValues.length - 1];
+
+    const change = lastForecastValue - lastValue;
+    const percentChange = lastValue !== 0 ? ((change / lastValue) * 100).toFixed(2) : 'N/A';
+
+    const trendDirection = regression.slope > 0 ? 'рост' : regression.slope < 0 ? 'снижение' : 'стабильность';
+    const trendStrength = Math.abs(regression.rSquared) >= 0.7 ? 'сильный' : 
+                         Math.abs(regression.rSquared) >= 0.5 ? 'умеренный' : 'слабый';
+
+    let html = '<div class="statistics-section">';
+    html += `<h3>Результаты прогнозирования</h3>`;
+    html += `<h4>${factorName} - ${countryName}</h4>`;
+    html += '<div class="statistics-summary">';
+    html += `<p><strong>Коэффициент детерминации (R²):</strong> ${regression.rSquared.toFixed(4)}</p>`;
+    html += `<p><strong>Тренд:</strong> ${trendStrength} ${trendDirection}</p>`;
+    html += `<p><strong>Последнее значение (${lastYear}):</strong> ${lastValue.toFixed(2)} ${unit}</p>`;
+    html += `<p><strong>Прогноз на ${lastForecastYear}:</strong> ${lastForecastValue.toFixed(2)} ${unit}</p>`;
+    html += `<p><strong>Изменение:</strong> ${change >= 0 ? '+' : ''}${change.toFixed(2)} ${unit} (${percentChange}%)</p>`;
+    html += '</div>';
+    html += '</div>';
+
+    return html;
 }
 
 // Инициализация кнопок экспорта в PDF
@@ -2189,6 +2889,14 @@ function initPdfExportButtons() {
     if (exportCorrelationChartBtn) {
         exportCorrelationChartBtn.addEventListener('click', () => {
             exportCorrelationChartToPdf();
+        });
+    }
+
+    // Кнопка экспорта графика прогноза
+    const exportForecastChartBtn = document.getElementById('exportForecastChartPdfBtn');
+    if (exportForecastChartBtn) {
+        exportForecastChartBtn.addEventListener('click', () => {
+            exportForecastChartToPdf();
         });
     }
 

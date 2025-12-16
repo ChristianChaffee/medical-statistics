@@ -180,7 +180,10 @@ function parseData(loadedData) {
 
     // Сортируем по годам (на всякий случай)
     result.dataPoints.sort((a, b) => a.year - b.year);
-    result.years.sort((a, b) => a - b);
+    
+    // Пересоздаем массивы years и values из отсортированных dataPoints для синхронизации
+    result.years = result.dataPoints.map(dp => dp.year);
+    result.values = result.dataPoints.map(dp => dp.value);
     
     return result;
 }
