@@ -8,8 +8,9 @@
 <body>
     <h1>Данные Всемирной организации здравоохранения</h1>
     
-    <div class="status" id="status">
-        Выбран тип данных: <strong>Продолжительность жизни</strong>
+    <div id="notification" class="notification hidden" style="display: none;">
+        <span id="notificationText"></span>
+        <span class="notification-close" onclick="hideNotification()">×</span>
     </div>
     
     <div class="chart-container">
@@ -18,14 +19,35 @@
 
     <div class="panel-container">
         <div class="color-container">
+            <select id="graphSelector" class="graph-select">
+                <option value="-1">Выберите график</option>
+            </select>
+        </div>
+        <div class="color-container" id="plotColorContainer" style="display: none;">
             <input type="color" id="plotColor" class="color-input" value="#ff0000">
             <div class="color-preview" id="plotColorPreview"></div>
             Цвет графика
         </div>
-        <div class="color-container">
+        <div class="color-container" id="plotBackgroundColorContainer" style="display: none;">
             <input type="color" id="plotBackgroundColor" class="color-input" value="#ffffff">
             <div class="color-preview" id="plotBackgroundColorPreview"></div>
             Цвет фона под графиком
+        </div>
+        <div class="color-container">
+            <button id="statisticsButton" class="statistics-button" onclick="if(typeof window.openStatisticsModal === 'function') window.openStatisticsModal(); else console.error('openStatisticsModal not available');">Статистика</button>
+        </div>
+    </div>
+
+    <!-- Модальное окно статистики -->
+    <div id="statisticsModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Статистика по графикам</h2>
+                <span class="modal-close" onclick="closeStatisticsModal()">&times;</span>
+            </div>
+            <div class="modal-body" id="statisticsContent">
+                <!-- Содержимое статистики будет добавлено через JavaScript -->
+            </div>
         </div>
     </div>
 

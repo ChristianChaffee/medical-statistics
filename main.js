@@ -55,8 +55,12 @@ function createWindow() {
 
     refreshCountriesList().then(() => {
         const countries = getCountriesList();
-        selectedCountry = countries[0];
-        selectedData = dataSets[0];
+        if (countries && countries.length > 0) {
+            selectedCountry = countries[0];
+        }
+        if (dataSets && dataSets.length > 0) {
+            selectedData = dataSets[0];
+        }
 
         createSimpleMenu(mainWindow);
 
@@ -67,27 +71,43 @@ function createWindow() {
 function createSimpleMenu(mainWindow) {
 
     const currentCountriesList = getCountriesList();
-    const countriesSubmenu = currentCountriesList.map((country, index) => ({
-        label: country.name,
-        type: 'checkbox',
-        checked: index === 0,
-        click: () => {
-            selectedCountry = country;
-            SendMainDataToRender();
+    const countriesSubmenu = currentCountriesList.map((country, index) => {
+        const isChecked = selectedCountriesCodes.includes(country.code);
+        return {
+            label: country.name,
+            type: 'checkbox',
+            checked: isChecked,
+            click: (menuItem) => {
+                selectedCountry = country;
+                SendMainDataToRender();
 
-            const findIndex = selectedCountriesCodes.findIndex(item => item === selectedCountry.code);
-            if(findIndex == -1){
-                selectedCountriesCodes.push(selectedCountry.code);
+                const findIndex = selectedCountriesCodes.findIndex(item => item === selectedCountry.code);
+                if(findIndex == -1){
+                    // Добавляем страну
+                    selectedCountriesCodes.push(selectedCountry.code);
+                    menuItem.checked = true;
+                }
+                else {
+                    // Удаляем страну
+                    selectedCountriesCodes.splice(findIndex, 1);
+                    menuItem.checked = false;
+                }
+
+                // Перезагружаем данные только для выбранных стран
+                if (selectedCountriesCodes.length > 0) {
+                    loadDataSet(selectedData[0], selectedCountriesCodes, mainWindow);
+                } else {
+                    // Если все страны сняты, отправляем пустой массив для удаления всех графиков
+                    mainWindow.webContents.send('parse-data', {
+                        parsedData: [],
+                        countriesList: countriesList
+                    });
+                }
+
+                if(DEBUG_ENABLE) console.log(`[countriesSubmenu Clicked]: ${country.name} (${country.code}), checked: ${menuItem.checked}`);
             }
-            else {
-                selectedCountriesCodes.splice(findIndex, 1);
-            }
-
-            loadDataSet(selectedData[0], selectedCountriesCodes, mainWindow);
-
-            if(DEBUG_ENABLE) console.log(`[countriesSubmenu Clicked]: ${country.name} (${country.code})`);
-        }
-    }))
+        };
+    })
 
     const template = [
         {
@@ -104,7 +124,10 @@ function createSimpleMenu(mainWindow) {
                     selectedData = item;
                     SendMainDataToRender();
 
-                    loadDataSet(item[0], selectedCountry.code, mainWindow);
+                    // Загружаем данные для всех выбранных стран
+                    if (selectedCountriesCodes.length > 0) {
+                        loadDataSet(item[0], selectedCountriesCodes, mainWindow);
+                    }
                 }
             }))
         },
@@ -134,8 +157,10 @@ function createSimpleMenu(mainWindow) {
 }
 
 function SendMainDataToRender(){
-    mainWindow.webContents.send('main-data-update', {
-        countryName: selectedCountry.name,
-        dataName: selectedData[1]
-    });
+    if (mainWindow && selectedCountry && selectedData) {
+        mainWindow.webContents.send('main-data-update', {
+            countryName: selectedCountry.name,
+            dataName: selectedData[1]
+        });
+    }
 }

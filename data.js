@@ -2,7 +2,7 @@ const axios = require('axios');
 const { dialog } = require('electron');
 
 //===================================================================
-const DEBUG_ENABLE = 1; // - Включение дебага
+const DEBUG_ENABLE = 0; // - Включение дебага
 
 const dataSets = [ // - Доступные наборы данных (код, название)
     ["H2020_1", "Преждевременная смертность"],
@@ -74,40 +74,64 @@ async function loadCountriesList() {
 async function loadDataSet(data_set_code, contry_codes, mainWindow = null) {
     try{
         const loadData = [];
+        const countriesWithoutData = [];
+        
         for(const item of contry_codes){
-           const http = `https://dw.euro.who.int/api/v3/measures/${data_set_code}?filter=COUNTRY:${item}&lang=RU`;
+            try {
+                const http = `https://dw.euro.who.int/api/v3/measures/${data_set_code}?filter=COUNTRY:${item}&lang=RU`;
 
-            if(DEBUG_ENABLE){
-                console.log(http);
+                if(DEBUG_ENABLE){
+                    console.log(http);
+                }
+
+                const response = await axios.get(http, {
+                    httpsAgent: new (require('https').Agent)({
+                        rejectUnauthorized: false
+                    }),
+                    timeout: 10000
+                });
+
+                const parsedData = parseData(response.data);
+                parsedData.countryCode = item; // Сохраняем код страны
+                
+                // Добавляем только страны с данными
+                if(parsedData.values.length && parsedData.years.length){
+                    loadData.push(parsedData);
+                } else {
+                    // Сохраняем информацию о странах без данных
+                    const country = countriesList.find(c => c.code === item);
+                    countriesWithoutData.push(country ? country.name : item);
+                }
+
+                if(DEBUG_ENABLE){
+                    console.log(parsedData);
+                }
+            } catch(error) {
+                // Обрабатываем ошибку для отдельной страны, но продолжаем загрузку остальных
+                console.log(`[loadDataSet ERROR for ${item}]: ${error.message || error}`);
+                const country = countriesList.find(c => c.code === item);
+                countriesWithoutData.push(country ? country.name : item);
             }
-
-            const response = await axios.get(http, {
-                httpsAgent: new (require('https').Agent)({
-                    rejectUnauthorized: false
-                }),
-                timeout: 10000
-            });
-
-            const parsedData = parseData(response.data);
-            loadData.push(parsedData);
-
-            if(!parsedData.values.length || !parsedData.years.length){
-                dialog.showErrorBox('Ошибка загрузки данных', 'Данные для этого параметра и этого государства отсутствуют.');
-            }
-
-            if(DEBUG_ENABLE){
-                console.log(parsedData);
-            } 
         }
 
         if(mainWindow != null){
             mainWindow.webContents.send('parse-data', {
                 parsedData: loadData,
+                countriesList: countriesList, // Передаем список стран для получения названий
+                countriesWithoutData: countriesWithoutData // Страны без данных
             });
         }
 
     } catch(error){
-        console.log(`[loadDataSet ERROR]: ${error}`);
+        console.log(`[loadDataSet ERROR]: ${error.message || error}`);
+        // Отправляем пустой массив в случае критической ошибки
+        if(mainWindow != null){
+            mainWindow.webContents.send('parse-data', {
+                parsedData: [],
+                countriesList: countriesList,
+                countriesWithoutData: []
+            });
+        }
     }
 }
 
