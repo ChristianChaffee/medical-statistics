@@ -608,6 +608,7 @@ input[type="radio"] {
     width: 100%;
     height: 400px;
     margin-top: 20px;
+    margin-bottom: 35px;
     padding: 15px;
     background: var(--card-bg);
     border-radius: 5px;
@@ -616,7 +617,7 @@ input[type="radio"] {
 }
 
 .correlation-info {
-    margin-top: 15px;
+    margin-top: 35px;
     padding: 15px;
     background-color: var(--secondary-bg);
     border-radius: 5px;

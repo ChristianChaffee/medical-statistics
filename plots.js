@@ -1780,7 +1780,7 @@ function displayCorrelationStatistics(data, synchronized, correlation) {
         data.factor2.dataSetInfo.name
     );
     
-    html += '<div class="correlation-info" style="margin-top: 15px;">';
+    html += '<div class="correlation-info">';
     html += '<h3>Вывод о зависимости факторов</h3>';
     // Используем CSS переменные для цветов в зависимости от типа корреляции
     const isDark = document.body.classList.contains('dark-theme');
@@ -1807,7 +1807,7 @@ function displayCorrelationStatistics(data, synchronized, correlation) {
     html += '</div>';
     html += '</div>';
 
-    html += '<div class="correlation-info" style="margin-top: 15px;">';
+    html += '<div class="correlation-info">';
     html += '<h3>Статистика по факторам</h3>';
     html += '<table class="statistics-table">';
     html += '<tr><th>Параметр</th><th>Фактор 1</th><th>Фактор 2</th></tr>';
