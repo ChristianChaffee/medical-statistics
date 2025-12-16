@@ -106,13 +106,44 @@ function updateChartsTheme() {
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
         initTheme();
+        initWindowControls();
         // Обновляем графики после небольшой задержки, чтобы они успели создаться
         setTimeout(updateChartsTheme, 500);
     });
 } else {
     initTheme();
+    initWindowControls();
     // Обновляем графики после небольшой задержки, чтобы они успели создаться
     setTimeout(updateChartsTheme, 500);
+}
+
+// Инициализация кнопок управления окном
+function initWindowControls() {
+    if (!window.require) return;
+    
+    const { ipcRenderer } = window.require('electron');
+    
+    const minimizeBtn = document.getElementById('minimizeBtn');
+    const maximizeBtn = document.getElementById('maximizeBtn');
+    const closeBtn = document.getElementById('closeBtn');
+    
+    if (minimizeBtn) {
+        minimizeBtn.addEventListener('click', () => {
+            ipcRenderer.send('window-minimize');
+        });
+    }
+    
+    if (maximizeBtn) {
+        maximizeBtn.addEventListener('click', () => {
+            ipcRenderer.send('window-maximize');
+        });
+    }
+    
+    if (closeBtn) {
+        closeBtn.addEventListener('click', () => {
+            ipcRenderer.send('window-close');
+        });
+    }
 }
 
 // ==================== СИСТЕМА ВКЛАДОК ====================

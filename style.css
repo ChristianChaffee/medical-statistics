@@ -46,10 +46,84 @@ body.dark-theme {
 
 body {
     font-family: 'Arial', 'Helvetica', sans-serif;
-    margin: 20px;
+    margin: 0;
+    padding: 20px;
+    padding-top: 70px; /* Отступ для кастомного заголовка */
     background-color: var(--bg-color);
     color: var(--text-color);
     transition: background-color 0.3s ease, color 0.3s ease;
+    overflow-x: hidden;
+}
+
+/* Кастомный заголовок окна */
+.window-title-bar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 30px;
+    background-color: var(--card-bg);
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 10px;
+    z-index: 10000;
+    -webkit-app-region: drag;
+    transition: background-color 0.3s ease, border-color 0.3s ease;
+    user-select: none;
+}
+
+.window-title-text {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-color);
+    transition: color 0.3s ease;
+    flex: 1;
+    text-align: center;
+    pointer-events: none;
+}
+
+.window-controls {
+    display: flex;
+    gap: 0;
+    -webkit-app-region: no-drag;
+}
+
+.window-control-btn {
+    width: 46px;
+    height: 30px;
+    border: none;
+    background: transparent;
+    color: var(--text-color);
+    font-size: 14px;
+    font-weight: 400;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.15s ease, color 0.15s ease;
+    padding: 0;
+    line-height: 1;
+    font-family: 'Segoe UI', 'Arial', sans-serif;
+}
+
+.window-control-btn:hover {
+    background-color: var(--hover-bg);
+}
+
+.window-control-close:hover {
+    background-color: #e81123;
+    color: white;
+}
+
+.window-control-btn:active {
+    background-color: var(--border-color);
+}
+
+/* Элементы, которые не должны перетаскивать окно */
+button:not(.window-control-btn), input, select, a, .theme-toggle, .tab-button, .correlation-button, .statistics-button {
+    -webkit-app-region: no-drag;
 }
 
 h1 {
@@ -60,7 +134,7 @@ h1 {
 /* Переключатель темы */
 .theme-toggle-container {
     position: fixed;
-    top: 20px;
+    top: 40px;
     right: 20px;
     z-index: 3000;
 }

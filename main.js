@@ -126,11 +126,35 @@ ipcMain.on('load-correlation-data', async (event, { countryCode, factor1Code, fa
   }
 });
 
+ipcMain.on('update-title-bar-theme', (event, isDark) => {
+  // Больше не используется, так как используем frameless окно
+});
+
+ipcMain.on('window-minimize', () => {
+  if (mainWindow) mainWindow.minimize();
+});
+
+ipcMain.on('window-maximize', () => {
+  if (mainWindow) {
+    if (mainWindow.isMaximized()) {
+      mainWindow.unmaximize();
+    } else {
+      mainWindow.maximize();
+    }
+  }
+});
+
+ipcMain.on('window-close', () => {
+  if (mainWindow) mainWindow.close();
+});
+
 //================================================= Остальные функции
 function createWindow() {
     mainWindow = new BrowserWindow({
         width: 1200,
         height: 800,
+        title: 'Графики ВОЗ',
+        frame: false, // Полностью убираем стандартную рамку
         webPreferences: {
             nodeIntegration: true,
             contextIsolation: false
