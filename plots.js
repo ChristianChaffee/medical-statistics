@@ -1,4 +1,4 @@
-const { ipcRenderer } = require('electron');
+﻿const { ipcRenderer } = require('electron');
 
 let dataName, dataCountry;
 let countriesList = []; // Список стран для получения названий
@@ -878,10 +878,26 @@ function showNotification(countriesWithoutData) {
     }
     
     let message = '';
-    if (countriesWithoutData.length === 1) {
-        message = `Данные для "${countriesWithoutData[0]}" отсутствуют`;
+    
+    // Проверяем, является ли это готовым сообщением (начинается с ключевых слов)
+    const firstItem = countriesWithoutData[0];
+    const isReadyMessage = firstItem && (
+        firstItem.startsWith('Для ') ||
+        firstItem.startsWith('Ошибка ') ||
+        firstItem.startsWith('Не удалось ') ||
+        firstItem.startsWith('Недостаточно ')
+    );
+    
+    if (isReadyMessage && countriesWithoutData.length === 1) {
+        // Это готовое сообщение, используем его как есть
+        message = firstItem;
     } else {
-        message = `Данные отсутствуют для: ${countriesWithoutData.join(', ')}`;
+        // Это массив названий стран, формируем сообщение
+        if (countriesWithoutData.length === 1) {
+            message = `Данные для "${countriesWithoutData[0]}" отсутствуют`;
+        } else {
+            message = `Данные отсутствуют для: ${countriesWithoutData.join(', ')}`;
+        }
     }
     
     // Добавляем иконку предупреждения в начало сообщения
@@ -1727,12 +1743,12 @@ function handleCalculateCorrelation() {
     const factor2Code = factor2Select?.value;
 
     if (!countryCode || !factor1Code || !factor2Code) {
-        showNotification(['Пожалуйста, выберите страну и оба фактора']);
+        showNotification(['Для расчета корреляции необходимо выбрать страну и оба фактора']);
         return;
     }
 
     if (factor1Code === factor2Code) {
-        showNotification(['Пожалуйста, выберите два разных фактора']);
+        showNotification(['Для корреляционного анализа необходимо выбрать два различных фактора']);
         return;
     }
 
@@ -1761,12 +1777,15 @@ ipcRenderer.on('correlation-data-loaded', (event, data) => {
     }
 
     if (data.error) {
-        showNotification([data.error]);
+        showNotification([`Ошибка загрузки данных: ${data.error}`]);
         return;
     }
 
     if (!data.factor1 || !data.factor2) {
-        showNotification(['Не удалось загрузить данные для одного или обоих факторов']);
+        const missingFactors = [];
+        if (!data.factor1) missingFactors.push('Фактор 1');
+        if (!data.factor2) missingFactors.push('Фактор 2');
+        showNotification([`Не удалось загрузить данные для ${missingFactors.join(' и ')}`]);
         return;
     }
 
@@ -1842,7 +1861,7 @@ function calculateAndDisplayCorrelation(data) {
     const synchronized = synchronizeDataByYears(data.factor1, data.factor2);
 
     if (synchronized.years.length < 2) {
-        showNotification(['Недостаточно общих данных для расчета корреляции']);
+        showNotification([`Недостаточно общих данных для расчета корреляции. Найдено общих точек данных: ${synchronized.years.length}. Требуется минимум 2 точки.`]);
         return;
     }
 
@@ -1853,7 +1872,7 @@ function calculateAndDisplayCorrelation(data) {
     );
 
     if (correlation === null) {
-        showNotification(['Не удалось вычислить корреляцию']);
+        showNotification(['Не удалось вычислить коэффициент корреляции. Возможно, данные не содержат достаточной вариации.']);
         return;
     }
 

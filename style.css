@@ -371,23 +371,22 @@ h1 {
     color: var(--notification-text);
     transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    position: absolute;
-    top: 20px;
-    left: 50%;
-    transform: translateX(-50%);
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
     z-index: 1000;
     display: flex;
     align-items: center;
     justify-content: center;
     opacity: 1;
     transition: opacity 0.3s ease-out, transform 0.3s ease-out;
-    animation: slideDown 0.3s ease-out;
+    animation: slideInRight 0.3s ease-out;
     pointer-events: auto;
 }
 
 .notification.hidden {
     opacity: 0;
-    transform: translateX(-50%) translateY(-20px);
+    transform: translateX(100%);
     pointer-events: none;
 }
 
@@ -411,14 +410,14 @@ h1 {
     color: #000;
 }
 
-@keyframes slideDown {
+@keyframes slideInRight {
     from {
         opacity: 0;
-        transform: translateY(-10px);
+        transform: translateX(100%);
     }
     to {
         opacity: 1;
-        transform: translateY(0);
+        transform: translateX(0);
     }
 }
 

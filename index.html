@@ -32,13 +32,14 @@
             <button class="tab-button" data-tab="correlation">Корреляционный анализ</button>
         </div>
         
+        <!-- Уведомление (доступно для всех вкладок) -->
+        <div id="notification" class="notification hidden" style="display: none;">
+            <span id="notificationText"></span>
+            <span class="notification-close" onclick="hideNotification()">×</span>
+        </div>
+        
         <!-- Вкладка: Сравнение нескольких стран -->
         <div class="tab-content active" id="tab-comparison">
-            <div id="notification" class="notification hidden" style="display: none;">
-                <span id="notificationText"></span>
-                <span class="notification-close" onclick="hideNotification()">×</span>
-            </div>
-            
             <!-- Панель выбора стран и данных -->
             <div class="comparison-controls">
                 <div class="comparison-control-section">
