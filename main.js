@@ -155,6 +155,7 @@ function createWindow() {
         height: 800,
         title: 'Графики ВОЗ',
         frame: false, // Полностью убираем стандартную рамку
+        resizable: false, // Отключаем изменение размера окна
         webPreferences: {
             nodeIntegration: true,
             contextIsolation: false
