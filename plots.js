@@ -56,7 +56,7 @@ function toggleTheme() {
     
     // Обновляем графики Chart.js для темной темы
     updateChartsTheme();
-    
+
     // Обновляем модальные окна, если они открыты
     // Пересоздаем содержимое модальных окон с правильными цветами
     const statisticsModal = document.getElementById('statisticsModal');
@@ -66,11 +66,35 @@ function toggleTheme() {
             window.openStatisticsModal();
         }
     }
-    
+
+    // Обновляем модальное окно корреляции, если оно открыто
     const correlationModal = document.getElementById('correlationModal');
-    if (correlationModal && correlationModal.classList.contains('show') && correlationData) {
-        // Если модальное окно корреляции открыто, пересоздаем его содержимое
-        calculateAndDisplayCorrelation(correlationData);
+    if (correlationModal && correlationModal.classList.contains('show')) {
+        if (correlationData && correlationData.synchronized && correlationData.correlation !== undefined) {
+            displayCorrelationStatistics(
+                correlationData,
+                correlationData.synchronized,
+                correlationData.correlation
+            );
+        } else if (correlationData) {
+            // Если модальное окно корреляции открыто, пересоздаем его содержимое
+            calculateAndDisplayCorrelation(correlationData);
+        }
+    }
+
+    // Обновляем блок информации о корреляции, если он отображается
+    const correlationInfo = document.getElementById('correlationInfo');
+    if (correlationInfo && correlationData) {
+        // Проверяем, что блок видим (не скрыт через display: none)
+        const isVisible = correlationInfo.style.display !== 'none' && 
+                          correlationInfo.offsetParent !== null;
+        if (isVisible && correlationData.synchronized && correlationData.correlation !== undefined) {
+            displayCorrelationInfo(
+                correlationData,
+                correlationData.synchronized,
+                correlationData.correlation
+            );
+        }
     }
 }
 
@@ -1059,27 +1083,11 @@ function calculateGraphStatistics(dataItem, index) {
 let statisticsModalOpening = false;
 
 // Функция для открытия модального окна статистики (доступна глобально)
-window.openStatisticsModal = function() {
-    // Предотвращаем множественные вызовы
-    if (statisticsModalOpening) {
-        return;
-    }
-    
-    console.log('openStatisticsModal called');
-    
+// Функция для генерации HTML статистики (используется и для модального окна, и для экспорта)
+function generateStatisticsHtml() {
     if (!chart || !dataSet || dataSet.length === 0) {
-        // Используем уведомление вместо alert для предотвращения спама
-        const countriesWithoutData = ['Нет данных для отображения статистики'];
-        showNotification(countriesWithoutData);
-        return;
+        return '<p>Нет данных для отображения статистики</p>';
     }
-    
-    statisticsModalOpening = true;
-    
-    const modal = document.getElementById('statisticsModal');
-    const content = document.getElementById('statisticsContent');
-    
-    if (!modal || !content) return;
     
     // Вычисляем статистику для всех графиков
     const statistics = [];
@@ -1091,12 +1099,7 @@ window.openStatisticsModal = function() {
     });
     
     if (statistics.length === 0) {
-        content.innerHTML = '<p>Нет данных для отображения статистики</p>';
-        modal.classList.add('show');
-        setTimeout(() => {
-            statisticsModalOpening = false;
-        }, 500);
-        return;
+        return '<p>Нет данных для отображения статистики</p>';
     }
     
     // Формируем HTML для отображения статистики
@@ -1263,6 +1266,34 @@ window.openStatisticsModal = function() {
         html += '</div>';
     }
     
+    return html;
+}
+
+window.openStatisticsModal = function() {
+    // Предотвращаем множественные вызовы
+    if (statisticsModalOpening) {
+        return;
+    }
+    
+    console.log('openStatisticsModal called');
+    
+    if (!chart || !dataSet || dataSet.length === 0) {
+        // Используем уведомление вместо alert для предотвращения спама
+        const countriesWithoutData = ['Нет данных для отображения статистики'];
+        showNotification(countriesWithoutData);
+        return;
+    }
+    
+    statisticsModalOpening = true;
+    
+    const modal = document.getElementById('statisticsModal');
+    const content = document.getElementById('statisticsContent');
+    
+    if (!modal || !content) return;
+    
+    // Генерируем HTML статистики
+    const html = generateStatisticsHtml();
+    
     content.innerHTML = html;
     modal.classList.add('show');
     
@@ -1277,6 +1308,302 @@ window.closeStatisticsModal = function() {
     const modal = document.getElementById('statisticsModal');
     if (modal) {
         modal.classList.remove('show');
+    }
+}
+
+// Функция экспорта статистики в PDF
+function exportStatisticsToPdf() {
+    console.log('exportStatisticsToPdf called');
+    console.log('chart:', chart);
+    console.log('dataSet:', dataSet);
+    console.log('dataSet length:', dataSet ? dataSet.length : 0);
+    
+    if (!chart || !dataSet || dataSet.length === 0) {
+        alert('Нет данных для экспорта статистики. Убедитесь, что график загружен.');
+        return;
+    }
+    
+    try {
+        if (window.require) {
+            const { ipcRenderer } = window.require('electron');
+            // Генерируем полную статистику (независимо от того, открыто ли модальное окно)
+            console.log('Generating statistics HTML...');
+            const htmlContent = generateStatisticsHtml();
+            console.log('Generated HTML length:', htmlContent ? htmlContent.length : 0);
+            
+            if (htmlContent && htmlContent !== '<p>Нет данных для отображения статистики</p>') {
+                console.log('Sending HTML to main process...');
+                ipcRenderer.send('export-statistics-to-pdf', htmlContent);
+            } else {
+                console.error('Generated HTML is empty or invalid');
+                alert('Не удалось сгенерировать статистику для экспорта. Убедитесь, что график содержит данные.');
+            }
+        } else {
+            console.error('window.require is not available');
+            alert('Ошибка: не удалось получить доступ к Electron API');
+        }
+    } catch (error) {
+        console.error('Error in exportStatisticsToPdf:', error);
+        alert('Ошибка при экспорте статистики: ' + error.message);
+    }
+}
+
+// Функция экспорта корреляции в PDF
+function exportCorrelationToPdf() {
+    if (window.require) {
+        const { ipcRenderer } = window.require('electron');
+        const content = document.getElementById('correlationContent');
+        if (content) {
+            // Получаем HTML содержимое модального окна
+            const htmlContent = content.innerHTML;
+            ipcRenderer.send('export-correlation-to-pdf', htmlContent);
+        }
+    }
+}
+
+// Функция экспорта графика в PDF (с графиком и статистикой)
+function exportChartToPdf() {
+    if (!chart) {
+        alert('График не загружен');
+        return;
+    }
+    
+    if (window.require) {
+        const { ipcRenderer } = window.require('electron');
+        
+        // Получаем изображение графика в base64
+        const imageData = chart.toBase64Image('image/png', 1.0);
+        
+        // Генерируем статистику
+        let statisticsHtml = '';
+        if (dataSet && dataSet.length > 0) {
+            statisticsHtml = generateStatisticsHtml();
+        }
+        
+        // Отправляем и график, и статистику
+        ipcRenderer.send('export-chart-to-pdf', {
+            chartImage: imageData,
+            statistics: statisticsHtml || ''
+        });
+    }
+}
+
+// Функция для генерации HTML статистики корреляции (используется и для модального окна, и для экспорта)
+function generateCorrelationStatisticsHtml(data, synchronized, correlation, forPdf = false) {
+    // Если параметры не переданы, пытаемся использовать глобальные данные
+    if (!data || !synchronized || correlation === undefined) {
+        if (!correlationData || !correlationChart) {
+            return '<p>Нет данных для отображения статистики корреляции</p>';
+        }
+        data = correlationData;
+        synchronized = correlationData.synchronized;
+        correlation = correlationData.correlation;
+    }
+    
+    if (!data || !synchronized || correlation === undefined) {
+        return '<p>Нет данных для отображения статистики корреляции</p>';
+    }
+    
+    const countryName = getCountryNameByCode(data.countryCode);
+    
+    // Вычисляем дополнительные статистики
+    const factor1Mean = calculateMean(synchronized.factor1Values);
+    const factor2Mean = calculateMean(synchronized.factor2Values);
+    const factor1Std = calculateStandardDeviation(synchronized.factor1Values);
+    const factor2Std = calculateStandardDeviation(synchronized.factor2Values);
+
+    // Интерпретация корреляции
+    let interpretation = '';
+    const absCorr = Math.abs(correlation);
+    if (absCorr >= 0.9) {
+        interpretation = 'Очень сильная';
+    } else if (absCorr >= 0.7) {
+        interpretation = 'Сильная';
+    } else if (absCorr >= 0.5) {
+        interpretation = 'Умеренная';
+    } else if (absCorr >= 0.3) {
+        interpretation = 'Слабая';
+    } else {
+        interpretation = 'Очень слабая или отсутствует';
+    }
+
+    const direction = correlation > 0 ? 'положительная' : 'отрицательная';
+
+    // Определяем стили в зависимости от того, для PDF или для модального окна
+    let infoBg, infoBorder, infoTextColor, h3Color, labelColor, valueColor;
+    let sectionBg, sectionBorder, sectionH3Color;
+    let tableHeaderBg, tableHeaderColor, tableCellBg1, tableCellBg2, tableCellColor, tableBorder;
+    
+    if (forPdf) {
+        // Для PDF используем светлую тему с конкретными цветами
+        infoBg = '#f0f0f0';
+        infoBorder = '#007bff';
+        infoTextColor = '#333';
+        h3Color = '#007bff';
+        labelColor = '#333';
+        valueColor = '#333';
+        sectionBg = '#f8f9fa';
+        sectionBorder = '#007bff';
+        sectionH3Color = '#007bff';
+        tableHeaderBg = '#f2f2f2';
+        tableHeaderColor = '#333';
+        tableCellBg1 = 'white';
+        tableCellBg2 = '#f9f9f9';
+        tableCellColor = '#333';
+        tableBorder = '#ddd';
+    } else {
+        // Для модального окна используем CSS переменные для поддержки темной темы
+        infoBg = 'var(--secondary-bg)';
+        infoBorder = 'var(--primary-color)';
+        infoTextColor = 'var(--text-color)';
+        h3Color = 'var(--primary-color)';
+        labelColor = 'var(--text-color)';
+        valueColor = 'var(--text-color)';
+        sectionBg = 'var(--secondary-bg)';
+        sectionBorder = 'var(--primary-color)';
+        sectionH3Color = 'var(--primary-color)';
+        tableHeaderBg = 'var(--secondary-bg)';
+        tableHeaderColor = 'var(--text-color)';
+        tableCellBg1 = 'var(--card-bg)';
+        tableCellBg2 = 'var(--hover-bg)';
+        tableCellColor = 'var(--text-color)';
+        tableBorder = 'var(--table-border)';
+    }
+
+    // Создаем HTML
+    let html = `<div class="correlation-info" style="margin-bottom: 15px; padding: 10px; background-color: ${infoBg}; border-radius: 5px; border-left: 4px solid ${infoBorder};">`;
+    html += `<h3 style="margin-top: 0; margin-bottom: 10px; color: ${h3Color}; font-size: 16px;">Корреляционный анализ для ${countryName}</h3>`;
+    html += `<div class="correlation-info-item" style="margin: 5px 0; padding: 3px 0;">`;
+    html += `<span class="correlation-info-label" style="font-weight: bold; color: ${labelColor}; margin-right: 8px;">Коэффициент корреляции Пирсона:</span>`;
+    html += `<span class="correlation-info-value" style="color: ${valueColor};">${correlation.toFixed(4)}</span>`;
+    html += '</div>';
+    html += `<div class="correlation-info-item" style="margin: 5px 0; padding: 3px 0;">`;
+    html += `<span class="correlation-info-label" style="font-weight: bold; color: ${labelColor}; margin-right: 8px;">Интерпретация:</span>`;
+    html += `<span class="correlation-info-value" style="color: ${valueColor};">${interpretation} ${direction} корреляция</span>`;
+    html += '</div>';
+    html += `<div class="correlation-info-item" style="margin: 5px 0; padding: 3px 0;">`;
+    html += `<span class="correlation-info-label" style="font-weight: bold; color: ${labelColor}; margin-right: 8px;">Количество точек данных:</span>`;
+    html += `<span class="correlation-info-value" style="color: ${valueColor};">${synchronized.years.length}</span>`;
+    html += '</div>';
+    html += `<div class="correlation-info-item" style="margin: 5px 0; padding: 3px 0;">`;
+    html += `<span class="correlation-info-label" style="font-weight: bold; color: ${labelColor}; margin-right: 8px;">Период:</span>`;
+    html += `<span class="correlation-info-value" style="color: ${valueColor};">${synchronized.years[0]} - ${synchronized.years[synchronized.years.length - 1]}</span>`;
+    html += '</div>';
+    html += '</div>';
+
+    // Добавляем вывод о зависимости факторов
+    const dependency = getDependencyConclusion(
+        correlation,
+        data.factor1.dataSetInfo.name,
+        data.factor2.dataSetInfo.name
+    );
+
+    // Определяем цвета для блока вывода
+    let alertBg, alertText, alertBorder, conclusionTextColor;
+    if (forPdf) {
+        // Для PDF всегда светлая тема
+        if (dependency.color === '#28a745') {
+            alertBg = '#d4edda';
+            alertText = '#155724';
+            alertBorder = '#28a745';
+            conclusionTextColor = '#155724';
+        } else if (dependency.color === '#ffc107') {
+            alertBg = '#fff3cd';
+            alertText = '#856404';
+            alertBorder = '#ffc107';
+            conclusionTextColor = '#856404';
+        } else if (dependency.color === '#ff9800') {
+            alertBg = '#ffe0b2';
+            alertText = '#e65100';
+            alertBorder = '#ff9800';
+            conclusionTextColor = '#e65100';
+        } else {
+            alertBg = '#f8d7da';
+            alertText = '#721c24';
+            alertBorder = '#dc3545';
+            conclusionTextColor = '#721c24';
+        }
+    } else {
+        // Для модального окна используем цвета в зависимости от темы
+        const isDark = document.body.classList.contains('dark-theme');
+        if (dependency.color === '#28a745') {
+            alertBg = isDark ? 'var(--success-bg)' : '#d4edda';
+            alertText = isDark ? 'var(--success-text)' : '#155724';
+            alertBorder = '#28a745';
+            conclusionTextColor = isDark ? 'var(--success-text)' : '#155724';
+        } else if (dependency.color === '#ffc107') {
+            alertBg = isDark ? 'var(--warning-bg)' : '#fff3cd';
+            alertText = isDark ? 'var(--warning-text)' : '#856404';
+            alertBorder = '#ffc107';
+            conclusionTextColor = isDark ? 'var(--warning-text)' : '#856404';
+        } else if (dependency.color === '#ff9800') {
+            alertBg = isDark ? '#4a2a00' : '#ffe0b2';
+            alertText = isDark ? '#ffb366' : '#e65100';
+            alertBorder = '#ff9800';
+            conclusionTextColor = isDark ? '#ffb366' : '#e65100';
+        } else {
+            alertBg = isDark ? '#4a1a1a' : '#f8d7da';
+            alertText = isDark ? '#ff9999' : '#721c24';
+            alertBorder = '#dc3545';
+            conclusionTextColor = isDark ? '#ff9999' : '#721c24';
+        }
+    }
+    
+    html += `<div style="margin-top: 10px; padding: 10px; background-color: ${alertBg}; border-left: 4px solid ${alertBorder}; border-radius: 4px;">`;
+    html += `<p style="margin: 0; color: ${alertText}; font-weight: bold; margin-bottom: 5px;">Вывод о зависимости факторов:</p>`;
+    html += `<p style="margin: 0; color: ${conclusionTextColor}; line-height: 1.5;">${dependency.conclusion}</p>`;
+    html += `</div>`;
+
+    // Добавляем таблицу со статистикой
+    html += `<div class="statistics-section" style="margin-bottom: 25px; padding: 15px; background-color: ${sectionBg}; border-radius: 5px; border-left: 4px solid ${sectionBorder};">`;
+    html += `<h3 style="margin-top: 0; margin-bottom: 15px; color: ${sectionH3Color}; font-size: 18px;">Статистика по факторам</h3>`;
+    html += `<table class="statistics-table" style="width: 100%; border-collapse: collapse; margin-top: 12px; margin-bottom: 15px; font-size: 11px;">`;
+    html += `<tr><th style="padding: 8px 10px; border: 1px solid ${tableBorder}; text-align: left; background-color: ${tableHeaderBg}; font-weight: bold; color: ${tableHeaderColor};">Параметр</th><th style="padding: 8px 10px; border: 1px solid ${tableBorder}; text-align: left; background-color: ${tableHeaderBg}; font-weight: bold; color: ${tableHeaderColor};">Фактор 1</th><th style="padding: 8px 10px; border: 1px solid ${tableBorder}; text-align: left; background-color: ${tableHeaderBg}; font-weight: bold; color: ${tableHeaderColor};">Фактор 2</th></tr>`;
+    html += `<tr><td style="padding: 8px 10px; border: 1px solid ${tableBorder}; text-align: left; background-color: ${tableCellBg1}; color: ${tableCellColor};">Название</td><td style="padding: 8px 10px; border: 1px solid ${tableBorder}; text-align: left; background-color: ${tableCellBg1}; color: ${tableCellColor};">${data.factor1.dataSetInfo.name}</td><td style="padding: 8px 10px; border: 1px solid ${tableBorder}; text-align: left; background-color: ${tableCellBg1}; color: ${tableCellColor};">${data.factor2.dataSetInfo.name}</td></tr>`;
+    html += `<tr><td style="padding: 8px 10px; border: 1px solid ${tableBorder}; text-align: left; background-color: ${tableCellBg2}; color: ${tableCellColor};">Единица измерения</td><td style="padding: 8px 10px; border: 1px solid ${tableBorder}; text-align: left; background-color: ${tableCellBg2}; color: ${tableCellColor};">${data.factor1.dataSetInfo.unit}</td><td style="padding: 8px 10px; border: 1px solid ${tableBorder}; text-align: left; background-color: ${tableCellBg2}; color: ${tableCellColor};">${data.factor2.dataSetInfo.unit}</td></tr>`;
+    html += `<tr><td style="padding: 8px 10px; border: 1px solid ${tableBorder}; text-align: left; background-color: ${tableCellBg1}; color: ${tableCellColor};">Среднее значение</td><td style="padding: 8px 10px; border: 1px solid ${tableBorder}; text-align: left; background-color: ${tableCellBg1}; color: ${tableCellColor};">${factor1Mean.toFixed(2)}</td><td style="padding: 8px 10px; border: 1px solid ${tableBorder}; text-align: left; background-color: ${tableCellBg1}; color: ${tableCellColor};">${factor2Mean.toFixed(2)}</td></tr>`;
+    html += `<tr><td style="padding: 8px 10px; border: 1px solid ${tableBorder}; text-align: left; background-color: ${tableCellBg2}; color: ${tableCellColor};">Стандартное отклонение</td><td style="padding: 8px 10px; border: 1px solid ${tableBorder}; text-align: left; background-color: ${tableCellBg2}; color: ${tableCellColor};">${factor1Std.toFixed(2)}</td><td style="padding: 8px 10px; border: 1px solid ${tableBorder}; text-align: left; background-color: ${tableCellBg2}; color: ${tableCellColor};">${factor2Std.toFixed(2)}</td></tr>`;
+    html += `<tr><td style="padding: 8px 10px; border: 1px solid ${tableBorder}; text-align: left; background-color: ${tableCellBg1}; color: ${tableCellColor};">Минимальное значение</td><td style="padding: 8px 10px; border: 1px solid ${tableBorder}; text-align: left; background-color: ${tableCellBg1}; color: ${tableCellColor};">${Math.min(...synchronized.factor1Values).toFixed(2)}</td><td style="padding: 8px 10px; border: 1px solid ${tableBorder}; text-align: left; background-color: ${tableCellBg1}; color: ${tableCellColor};">${Math.min(...synchronized.factor2Values).toFixed(2)}</td></tr>`;
+    html += `<tr><td style="padding: 8px 10px; border: 1px solid ${tableBorder}; text-align: left; background-color: ${tableCellBg2}; color: ${tableCellColor};">Максимальное значение</td><td style="padding: 8px 10px; border: 1px solid ${tableBorder}; text-align: left; background-color: ${tableCellBg2}; color: ${tableCellColor};">${Math.max(...synchronized.factor1Values).toFixed(2)}</td><td style="padding: 8px 10px; border: 1px solid ${tableBorder}; text-align: left; background-color: ${tableCellBg2}; color: ${tableCellColor};">${Math.max(...synchronized.factor2Values).toFixed(2)}</td></tr>`;
+    html += '</table>';
+    html += '</div>';
+
+    return html;
+}
+
+// Функция экспорта графика корреляции в PDF (с графиком и статистикой)
+function exportCorrelationChartToPdf() {
+    if (!correlationChart) {
+        alert('График корреляции не загружен');
+        return;
+    }
+    
+    if (window.require) {
+        const { ipcRenderer } = window.require('electron');
+        
+        // Получаем изображение графика корреляции в base64
+        const imageData = correlationChart.toBase64Image('image/png', 1.0);
+        
+        // Генерируем статистику корреляции (независимо от того, открыто ли модальное окно)
+        // Используем данные из глобальной переменной correlationData
+        // Передаем forPdf=true для использования конкретных цветов в PDF
+        let statisticsHtml = '';
+        if (correlationData && correlationData.synchronized && correlationData.correlation !== undefined) {
+            statisticsHtml = generateCorrelationStatisticsHtml(
+                correlationData,
+                correlationData.synchronized,
+                correlationData.correlation,
+                true // forPdf = true
+            );
+        } else {
+            statisticsHtml = generateCorrelationStatisticsHtml(null, null, null, true);
+        }
+        
+        // Отправляем и график, и статистику
+        ipcRenderer.send('export-chart-to-pdf', {
+            chartImage: imageData,
+            statistics: statisticsHtml || ''
+        });
     }
 }
 
@@ -1717,25 +2044,29 @@ function displayCorrelationInfo(data, synchronized, correlation) {
         data.factor2.dataSetInfo.name
     );
 
-    // Определяем цвета для текущей темы
+    // Определяем цвета для текущей темы (используем CSS переменные для адаптивности)
     const isDark = document.body.classList.contains('dark-theme');
-    let alertBg, alertText, alertBorder;
+    let alertBg, alertText, alertBorder, conclusionTextColor;
     if (dependency.color === '#28a745') {
         alertBg = isDark ? 'var(--success-bg)' : '#d4edda';
         alertText = isDark ? 'var(--success-text)' : '#155724';
         alertBorder = '#28a745';
+        conclusionTextColor = isDark ? 'var(--success-text)' : '#155724';
     } else if (dependency.color === '#ffc107') {
         alertBg = isDark ? 'var(--warning-bg)' : '#fff3cd';
         alertText = isDark ? 'var(--warning-text)' : '#856404';
         alertBorder = '#ffc107';
+        conclusionTextColor = isDark ? 'var(--warning-text)' : '#856404';
     } else if (dependency.color === '#ff9800') {
         alertBg = isDark ? '#4a2a00' : '#ffe0b2';
         alertText = isDark ? '#ffb366' : '#e65100';
         alertBorder = '#ff9800';
+        conclusionTextColor = isDark ? '#ffb366' : '#e65100';
     } else {
         alertBg = isDark ? '#4a1a1a' : '#f8d7da';
         alertText = isDark ? '#ff9999' : '#721c24';
         alertBorder = '#dc3545';
+        conclusionTextColor = isDark ? '#ff9999' : '#721c24';
     }
     
     let html = `<h3 style="margin-top: 0; margin-bottom: 6px; color: var(--primary-color); font-size: 14px;">Результаты корреляционного анализа для ${countryName}</h3>`;
@@ -1744,10 +2075,10 @@ function displayCorrelationInfo(data, synchronized, correlation) {
     html += `<p style="margin: 4px 0; color: var(--text-color); font-size: 12px;"><strong>Количество точек данных:</strong> ${synchronized.years.length}</p>`;
     html += `<p style="margin: 4px 0; color: var(--text-color); font-size: 12px;"><strong>Период:</strong> ${synchronized.years[0]} - ${synchronized.years[synchronized.years.length - 1]}</p>`;
     
-    // Добавляем вывод о зависимости
+    // Добавляем вывод о зависимости (используем конкретные цвета для лучшей читаемости)
     html += `<div style="margin-top: 6px; padding: 6px; background-color: ${alertBg}; border-left: 4px solid ${alertBorder}; border-radius: 4px;">`;
     html += `<p style="margin: 0; color: ${alertText}; font-weight: bold; margin-bottom: 4px; font-size: 12px;">Вывод о зависимости факторов:</p>`;
-    html += `<p style="margin: 0; color: var(--text-color); line-height: 1.4; font-size: 11px;">${dependency.conclusion}</p>`;
+    html += `<p style="margin: 0; color: ${conclusionTextColor}; line-height: 1.4; font-size: 11px;">${dependency.conclusion}</p>`;
     html += `</div>`;
     
     html += `<p style="margin: 4px 0; color: var(--text-color); opacity: 0.7; font-size: 11px;">Подробная статистика доступна в модальном окне</p>`;
@@ -1758,99 +2089,15 @@ function displayCorrelationInfo(data, synchronized, correlation) {
 
 // Функция отображения статистики корреляции
 function displayCorrelationStatistics(data, synchronized, correlation) {
-    const countryName = getCountryNameByCode(data.countryCode);
-    
-    // Вычисляем дополнительные статистики
-    const factor1Mean = calculateMean(synchronized.factor1Values);
-    const factor2Mean = calculateMean(synchronized.factor2Values);
-    const factor1Std = calculateStandardDeviation(synchronized.factor1Values);
-    const factor2Std = calculateStandardDeviation(synchronized.factor2Values);
-
-    // Интерпретация корреляции
-    let interpretation = '';
-    const absCorr = Math.abs(correlation);
-    if (absCorr >= 0.9) {
-        interpretation = 'Очень сильная';
-    } else if (absCorr >= 0.7) {
-        interpretation = 'Сильная';
-    } else if (absCorr >= 0.5) {
-        interpretation = 'Умеренная';
-    } else if (absCorr >= 0.3) {
-        interpretation = 'Слабая';
-    } else {
-        interpretation = 'Очень слабая или отсутствует';
+    // Сохраняем данные в глобальную переменную для использования в экспорте
+    if (correlationData) {
+        correlationData.synchronized = synchronized;
+        correlationData.correlation = correlation;
     }
-
-    const direction = correlation > 0 ? 'положительная' : 'отрицательная';
-
-    // Создаем HTML для модального окна
-    let html = '<div class="correlation-info">';
-    html += `<h3>Корреляционный анализ для ${countryName}</h3>`;
-    html += '<div class="correlation-info-item">';
-    html += `<span class="correlation-info-label">Коэффициент корреляции Пирсона:</span>`;
-    html += `<span class="correlation-info-value">${correlation.toFixed(4)}</span>`;
-    html += '</div>';
-    html += '<div class="correlation-info-item">';
-    html += `<span class="correlation-info-label">Интерпретация:</span>`;
-    html += `<span class="correlation-info-value">${interpretation} ${direction} корреляция</span>`;
-    html += '</div>';
-    html += '<div class="correlation-info-item">';
-    html += `<span class="correlation-info-label">Количество точек данных:</span>`;
-    html += `<span class="correlation-info-value">${synchronized.years.length}</span>`;
-    html += '</div>';
-    html += '<div class="correlation-info-item">';
-    html += `<span class="correlation-info-label">Период:</span>`;
-    html += `<span class="correlation-info-value">${synchronized.years[0]} - ${synchronized.years[synchronized.years.length - 1]}</span>`;
-    html += '</div>';
-    html += '</div>';
-
-    // Добавляем вывод о зависимости факторов
-    const dependency = getDependencyConclusion(
-        correlation,
-        data.factor1.dataSetInfo.name,
-        data.factor2.dataSetInfo.name
-    );
     
-    html += '<div class="correlation-info">';
-    html += '<h3>Вывод о зависимости факторов</h3>';
-    // Используем CSS переменные для цветов в зависимости от типа корреляции
-    const isDark = document.body.classList.contains('dark-theme');
-    let alertBg, alertText, alertBorder;
-    if (dependency.color === '#28a745') {
-        alertBg = isDark ? 'var(--success-bg)' : '#d4edda';
-        alertText = isDark ? 'var(--success-text)' : '#155724';
-        alertBorder = '#28a745';
-    } else if (dependency.color === '#ffc107') {
-        alertBg = isDark ? 'var(--warning-bg)' : '#fff3cd';
-        alertText = isDark ? 'var(--warning-text)' : '#856404';
-        alertBorder = '#ffc107';
-    } else if (dependency.color === '#ff9800') {
-        alertBg = isDark ? '#4a2a00' : '#ffe0b2';
-        alertText = isDark ? '#ffb366' : '#e65100';
-        alertBorder = '#ff9800';
-    } else {
-        alertBg = isDark ? '#4a1a1a' : '#f8d7da';
-        alertText = isDark ? '#ff9999' : '#721c24';
-        alertBorder = '#dc3545';
-    }
-    html += `<div style="padding: 6px; background-color: ${alertBg}; border-left: 4px solid ${alertBorder}; border-radius: 4px; margin-top: 6px;">`;
-    html += `<p style="margin: 0; color: ${alertText}; line-height: 1.4; font-size: 11px;">${dependency.conclusion}</p>`;
-    html += '</div>';
-    html += '</div>';
-
-    html += '<div class="correlation-info">';
-    html += '<h3>Статистика по факторам</h3>';
-    html += '<table class="statistics-table">';
-    html += '<tr><th>Параметр</th><th>Фактор 1</th><th>Фактор 2</th></tr>';
-    html += `<tr><td>Название</td><td>${data.factor1.dataSetInfo.name}</td><td>${data.factor2.dataSetInfo.name}</td></tr>`;
-    html += `<tr><td>Единица измерения</td><td>${data.factor1.dataSetInfo.unit}</td><td>${data.factor2.dataSetInfo.unit}</td></tr>`;
-    html += `<tr><td>Среднее значение</td><td>${factor1Mean.toFixed(2)}</td><td>${factor2Mean.toFixed(2)}</td></tr>`;
-    html += `<tr><td>Стандартное отклонение</td><td>${factor1Std.toFixed(2)}</td><td>${factor2Std.toFixed(2)}</td></tr>`;
-    html += `<tr><td>Минимальное значение</td><td>${Math.min(...synchronized.factor1Values).toFixed(2)}</td><td>${Math.min(...synchronized.factor2Values).toFixed(2)}</td></tr>`;
-    html += `<tr><td>Максимальное значение</td><td>${Math.max(...synchronized.factor1Values).toFixed(2)}</td><td>${Math.max(...synchronized.factor2Values).toFixed(2)}</td></tr>`;
-    html += '</table>';
-    html += '</div>';
-
+    // Используем общую функцию генерации HTML с передачей параметров
+    const html = generateCorrelationStatisticsHtml(data, synchronized, correlation);
+    
     // Отображаем в модальном окне
     const modal = document.getElementById('correlationModal');
     const content = document.getElementById('correlationContent');
@@ -1881,6 +2128,7 @@ document.addEventListener('click', function(event) {
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
         setTimeout(initCorrelationElements, 100);
+        initPdfExportButtons();
         // Список стран уже запрашивается в initTabs(), но запросим еще раз на всякий случай
         if (!countriesList || countriesList.length === 0) {
             ipcRenderer.send('get-countries');
@@ -1888,8 +2136,121 @@ if (document.readyState === 'loading') {
     });
 } else {
     setTimeout(initCorrelationElements, 100);
+    initPdfExportButtons();
     // Список стран уже запрашивается в initTabs(), но запросим еще раз на всякий случай
     if (!countriesList || countriesList.length === 0) {
         ipcRenderer.send('get-countries');
     }
 }
+
+// Инициализация кнопок экспорта в PDF
+function initPdfExportButtons() {
+    // Кнопка экспорта статистики
+    const exportStatisticsBtn = document.getElementById('exportStatisticsPdfBtn');
+    if (exportStatisticsBtn) {
+        exportStatisticsBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('Export statistics button clicked');
+            exportStatisticsToPdf();
+        });
+    }
+
+
+    // Кнопка экспорта графика
+    const exportChartBtn = document.getElementById('exportChartPdfBtn');
+    if (exportChartBtn) {
+        exportChartBtn.addEventListener('click', () => {
+            exportChartToPdf();
+        });
+    }
+
+    // Кнопка экспорта графика корреляции
+    const exportCorrelationChartBtn = document.getElementById('exportCorrelationChartPdfBtn');
+    if (exportCorrelationChartBtn) {
+        exportCorrelationChartBtn.addEventListener('click', () => {
+            exportCorrelationChartToPdf();
+        });
+    }
+
+    // Обработчики успешного экспорта и ошибок
+    if (window.require) {
+        const { ipcRenderer } = window.require('electron');
+        
+        // Удаляем старые обработчики, если они есть
+        ipcRenderer.removeAllListeners('pdf-export-success');
+        ipcRenderer.removeAllListeners('pdf-export-error');
+        ipcRenderer.removeAllListeners('open-file-error');
+        
+        ipcRenderer.on('pdf-export-success', (event, filePath) => {
+            console.log('PDF export success:', filePath);
+            showOpenFileDialog(filePath);
+        });
+
+        ipcRenderer.on('pdf-export-error', (event, error) => {
+            console.error('PDF export error:', error);
+            alert(`Ошибка при экспорте в PDF:\n${error}`);
+        });
+
+        ipcRenderer.on('open-file-error', (event, error) => {
+            console.error('Open file error:', error);
+            alert(`Ошибка при открытии файла:\n${error}`);
+        });
+    }
+}
+
+// Функция показа диалога открытия файла
+function showOpenFileDialog(filePath) {
+    const modal = document.getElementById('openFileModal');
+    const message = document.getElementById('openFileMessage');
+    const yesBtn = document.getElementById('openFileYesBtn');
+    const noBtn = document.getElementById('openFileNoBtn');
+    
+    if (!modal || !message || !yesBtn || !noBtn) {
+        // Если модальное окно не найдено, показываем обычный alert
+        alert(`PDF успешно сохранен:\n${filePath}`);
+        return;
+    }
+    
+    // Обновляем сообщение с путем к файлу
+    const fileName = filePath.split(/[/\\]/).pop();
+    message.innerHTML = `Файл <strong>${fileName}</strong> успешно сохранён.<br><br>Хотите открыть его?`;
+    
+    // Удаляем старые обработчики
+    const newYesBtn = yesBtn.cloneNode(true);
+    const newNoBtn = noBtn.cloneNode(true);
+    yesBtn.parentNode.replaceChild(newYesBtn, yesBtn);
+    noBtn.parentNode.replaceChild(newNoBtn, noBtn);
+    
+    // Добавляем обработчики
+    newYesBtn.addEventListener('click', () => {
+        if (window.require) {
+            const { ipcRenderer } = window.require('electron');
+            ipcRenderer.send('open-file', filePath);
+        }
+        closeOpenFileModal();
+    });
+    
+    newNoBtn.addEventListener('click', () => {
+        closeOpenFileModal();
+    });
+    
+    // Показываем модальное окно
+    modal.classList.add('show');
+}
+
+// Функция закрытия модального окна открытия файла
+function closeOpenFileModal() {
+    const modal = document.getElementById('openFileModal');
+    if (modal) {
+        modal.classList.remove('show');
+    }
+}
+
+// Закрытие модального окна открытия файла при клике вне его
+document.addEventListener('click', function(event) {
+    const modal = document.getElementById('openFileModal');
+    if (modal && event.target === modal) {
+        closeOpenFileModal();
+    }
+});

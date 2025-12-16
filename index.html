@@ -78,6 +78,9 @@
                 <div class="color-container">
                     <button id="statisticsButton" class="statistics-button" onclick="if(typeof window.openStatisticsModal === 'function') window.openStatisticsModal(); else console.error('openStatisticsModal not available');">Статистика</button>
                 </div>
+                <div class="color-container">
+                    <button id="exportChartPdfBtn" class="statistics-button" title="Экспорт графика в PDF">📄 Экспорт графика</button>
+                </div>
             </div>
         </div>
 
@@ -110,6 +113,9 @@
                 </div>
                 <div class="correlation-chart-container" id="correlationChartContainer" style="display: none;">
                     <canvas id="correlationChart"></canvas>
+                    <div style="margin-top: 10px; text-align: center;">
+                        <button id="exportCorrelationChartPdfBtn" class="export-pdf-button" title="Экспорт графика корреляции в PDF">📄 Экспорт графика</button>
+                    </div>
                 </div>
                 <div id="correlationInfo" class="correlation-info" style="display: none;"></div>
             </div>
@@ -121,7 +127,10 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h2>Статистика по графикам</h2>
-                <span class="modal-close" onclick="closeStatisticsModal()">&times;</span>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <button id="exportStatisticsPdfBtn" class="export-pdf-button" title="Экспорт в PDF">📄 PDF</button>
+                    <span class="modal-close" onclick="closeStatisticsModal()">&times;</span>
+                </div>
             </div>
             <div class="modal-body" id="statisticsContent">
                 <!-- Содержимое статистики будет добавлено через JavaScript -->
@@ -138,6 +147,25 @@
             </div>
             <div class="modal-body" id="correlationContent">
                 <!-- Содержимое корреляции будет добавлено через JavaScript -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно подтверждения открытия файла -->
+    <div id="openFileModal" class="modal">
+        <div class="modal-content" style="max-width: 400px;">
+            <div class="modal-header">
+                <h2>Файл сохранён</h2>
+            </div>
+            <div class="modal-body" style="text-align: center; padding: 20px;">
+                <p id="openFileMessage" style="margin-bottom: 20px; color: var(--text-color);">
+                    Файл успешно сохранён.<br>
+                    Хотите открыть его?
+                </p>
+                <div style="display: flex; gap: 10px; justify-content: center;">
+                    <button id="openFileYesBtn" class="export-pdf-button" style="min-width: 100px;">Да</button>
+                    <button id="openFileNoBtn" class="export-pdf-button" style="min-width: 100px; background-color: var(--bg-color-secondary);">Нет</button>
+                </div>
             </div>
         </div>
     </div>
