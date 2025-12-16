@@ -250,13 +250,15 @@ function initTabs() {
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
         initTabs();
-        // Запрашиваем список стран при загрузке страницы
+        // Запрашиваем список стран и наборов данных при загрузке страницы
         ipcRenderer.send('get-countries');
+        ipcRenderer.send('get-data-sets');
     });
 } else {
     initTabs();
-    // Запрашиваем список стран при загрузке страницы
+    // Запрашиваем список стран и наборов данных при загрузке страницы
     ipcRenderer.send('get-countries');
+    ipcRenderer.send('get-data-sets');
 }
 
 let dataSet = [
@@ -333,6 +335,9 @@ ipcRenderer.on('data-sets-list', (event, dataSets) => {
         selectedDataSetCode = dataSets[0][0];
     }
     updateComparisonDataSetsList(dataSets);
+    // Обновляем селекторы факторов в корреляции и прогнозировании
+    updateCorrelationFactorSelectors();
+    updateForecastFactorSelector();
 });
 
 
@@ -1725,18 +1730,32 @@ function initCorrelationElements() {
     // Заполняем список стран (используем отдельную функцию)
     updateCorrelationCountrySelector();
 
-    // Заполняем списки факторов (используем dataSets из main процесса)
-    // Нужно получить dataSets через IPC или использовать глобальную переменную
-    const dataSets = [
-        ["H2020_1", "Преждевременная смертность"],
-        ["H2020_2", "Табакокурение"],
-        ["H2020_9", "Ожирение"],
-        ["ENHIS_16", "Распространенность ожирения и избыточной массы тела у детей в возрасте 11 лет"],
-        ["ENHIS_17", "Распространенность ожирения и избыточной массы тела у детей в возрасте 13 лет"],
-        ["ENHIS_18", "Распространенность ожирения и избыточной массы тела у детей в возрасте 15 лет"]
-    ];
+    // Заполняем списки факторов (используем dataSetsList из глобальной переменной)
+    updateCorrelationFactorSelectors();
+
+    // Если dataSetsList еще не загружен, запрашиваем его
+    if (!dataSetsList || dataSetsList.length === 0) {
+        const { ipcRenderer } = require('electron');
+        ipcRenderer.send('get-data-sets');
+    }
+
+    // Обработчик кнопки расчета корреляции (добавляем только один раз)
+    if (calculateButton && !calculateButton.hasAttribute('data-listener-attached')) {
+        calculateButton.addEventListener('click', handleCalculateCorrelation);
+        calculateButton.setAttribute('data-listener-attached', 'true');
+    }
+}
+
+// Функция обновления селекторов факторов для корреляции
+function updateCorrelationFactorSelectors() {
+    const factor1Select = document.getElementById('correlationFactor1');
+    const factor2Select = document.getElementById('correlationFactor2');
+
+    // Используем dataSetsList, если он загружен, иначе используем пустой массив
+    const dataSets = dataSetsList && dataSetsList.length > 0 ? dataSetsList : [];
 
     if (factor1Select) {
+        const currentValue1 = factor1Select.value;
         factor1Select.innerHTML = '<option value="">Выберите фактор</option>';
         dataSets.forEach(dataset => {
             const option = document.createElement('option');
@@ -1744,9 +1763,14 @@ function initCorrelationElements() {
             option.textContent = dataset[1];
             factor1Select.appendChild(option);
         });
+        // Восстанавливаем значение, если оно было
+        if (currentValue1) {
+            factor1Select.value = currentValue1;
+        }
     }
 
     if (factor2Select) {
+        const currentValue2 = factor2Select.value;
         factor2Select.innerHTML = '<option value="">Выберите фактор</option>';
         dataSets.forEach(dataset => {
             const option = document.createElement('option');
@@ -1754,12 +1778,10 @@ function initCorrelationElements() {
             option.textContent = dataset[1];
             factor2Select.appendChild(option);
         });
-    }
-
-    // Обработчик кнопки расчета корреляции (добавляем только один раз)
-    if (calculateButton && !calculateButton.hasAttribute('data-listener-attached')) {
-        calculateButton.addEventListener('click', handleCalculateCorrelation);
-        calculateButton.setAttribute('data-listener-attached', 'true');
+        // Восстанавливаем значение, если оно было
+        if (currentValue2) {
+            factor2Select.value = currentValue2;
+        }
     }
 }
 
@@ -2210,17 +2232,31 @@ function initForecastElements() {
     // Заполняем список стран
     updateForecastCountrySelector();
 
-    // Заполняем список показателей
-    const dataSets = [
-        ["H2020_1", "Преждевременная смертность"],
-        ["H2020_2", "Табакокурение"],
-        ["H2020_9", "Ожирение"],
-        ["ENHIS_16", "Распространенность ожирения и избыточной массы тела у детей в возрасте 11 лет"],
-        ["ENHIS_17", "Распространенность ожирения и избыточной массы тела у детей в возрасте 13 лет"],
-        ["ENHIS_18", "Распространенность ожирения и избыточной массы тела у детей в возрасте 15 лет"]
-    ];
+    // Заполняем список показателей (используем dataSetsList из глобальной переменной)
+    updateForecastFactorSelector();
+
+    // Если dataSetsList еще не загружен, запрашиваем его
+    if (!dataSetsList || dataSetsList.length === 0) {
+        const { ipcRenderer } = require('electron');
+        ipcRenderer.send('get-data-sets');
+    }
+
+    // Обработчик кнопки расчета прогноза (добавляем только один раз)
+    if (calculateButton && !calculateButton.hasAttribute('data-listener-attached')) {
+        calculateButton.addEventListener('click', handleCalculateForecast);
+        calculateButton.setAttribute('data-listener-attached', 'true');
+    }
+}
+
+// Функция обновления селектора показателей для прогнозирования
+function updateForecastFactorSelector() {
+    const factorSelect = document.getElementById('forecastFactor');
+
+    // Используем dataSetsList, если он загружен, иначе используем пустой массив
+    const dataSets = dataSetsList && dataSetsList.length > 0 ? dataSetsList : [];
 
     if (factorSelect) {
+        const currentValue = factorSelect.value;
         factorSelect.innerHTML = '<option value="">Выберите показатель</option>';
         dataSets.forEach(dataset => {
             const option = document.createElement('option');
@@ -2228,12 +2264,10 @@ function initForecastElements() {
             option.textContent = dataset[1];
             factorSelect.appendChild(option);
         });
-    }
-
-    // Обработчик кнопки расчета прогноза (добавляем только один раз)
-    if (calculateButton && !calculateButton.hasAttribute('data-listener-attached')) {
-        calculateButton.addEventListener('click', handleCalculateForecast);
-        calculateButton.setAttribute('data-listener-attached', 'true');
+        // Восстанавливаем значение, если оно было
+        if (currentValue) {
+            factorSelect.value = currentValue;
+        }
     }
 }
 
