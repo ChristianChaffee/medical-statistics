@@ -1,6 +1,99 @@
+/* CSS переменные для светлой темы */
+:root {
+    --bg-color: #ffffff;
+    --text-color: #212529;
+    --secondary-bg: #f8f9fa;
+    --border-color: #dee2e6;
+    --panel-bg: #f0f0f0;
+    --card-bg: #ffffff;
+    --hover-bg: #f8f9fa;
+    --primary-color: #007bff;
+    --primary-hover: #0056b3;
+    --notification-bg: #fff3cd;
+    --notification-border: #ffc107;
+    --notification-text: #856404;
+    --info-bg: #e7f3ff;
+    --info-text: #333;
+    --warning-bg: #fff3cd;
+    --warning-text: #856404;
+    --success-bg: #d4edda;
+    --success-text: #155724;
+    --table-border: #ddd;
+}
+
+/* Темная тема */
+body.dark-theme {
+    --bg-color: #1a1a1a;
+    --text-color: #e0e0e0;
+    --secondary-bg: #2d2d2d;
+    --border-color: #404040;
+    --panel-bg: #252525;
+    --card-bg: #2d2d2d;
+    --hover-bg: #3a3a3a;
+    --primary-color: #4a9eff;
+    --primary-hover: #357abd;
+    --notification-bg: #4a3a00;
+    --notification-border: #ffc107;
+    --notification-text: #ffd700;
+    --info-bg: #1e3a5f;
+    --info-text: #b3d9ff;
+    --warning-bg: #4a3a00;
+    --warning-text: #ffd700;
+    --success-bg: #1e4a2e;
+    --success-text: #90ee90;
+    --table-border: #404040;
+}
+
 body {
     font-family: 'Arial', 'Helvetica', sans-serif;
     margin: 20px;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+h1 {
+    color: var(--text-color);
+    transition: color 0.3s ease;
+}
+
+/* Переключатель темы */
+.theme-toggle-container {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 3000;
+}
+
+.theme-toggle {
+    width: 45px;
+    height: 45px;
+    border-radius: 50%;
+    border: 2px solid var(--border-color);
+    background-color: var(--card-bg);
+    color: var(--text-color);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.theme-toggle:hover {
+    background-color: var(--hover-bg);
+    transform: scale(1.1);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+}
+
+.theme-toggle:active {
+    transform: scale(0.95);
+}
+
+.theme-icon {
+    display: block;
+    line-height: 1;
 }
 
 /* Стили для системы вкладок */
@@ -10,9 +103,10 @@ body {
 
 .tabs-header {
     display: flex;
-    border-bottom: 2px solid #dee2e6;
+    border-bottom: 2px solid var(--border-color);
     margin-bottom: 20px;
     gap: 0;
+    transition: border-color 0.3s ease;
 }
 
 .tab-button {
@@ -31,14 +125,14 @@ body {
 }
 
 .tab-button:hover {
-    color: #007bff;
-    background-color: #f8f9fa;
+    color: var(--primary-color);
+    background-color: var(--hover-bg);
 }
 
 .tab-button.active {
-    color: #007bff;
-    border-bottom-color: #007bff;
-    background-color: #fff;
+    color: var(--primary-color);
+    border-bottom-color: var(--primary-color);
+    background-color: var(--bg-color);
 }
 
 .tab-content {
@@ -53,10 +147,11 @@ body {
 
 .status, .panel-container {
     padding: 10px;
-    background: #f0f0f0;
+    background: var(--panel-bg);
     margin: 10px 0;
     border-radius: 5px;
     font-family: 'Arial', 'Helvetica', sans-serif;
+    transition: background-color 0.3s ease;
 }
 
 /* Стили для панели управления сравнением стран */
@@ -65,9 +160,10 @@ body {
     gap: 15px;
     margin-bottom: 15px;
     padding: 10px;
-    background: #f8f9fa;
+    background: var(--secondary-bg);
     border-radius: 6px;
-    border: 1px solid #dee2e6;
+    border: 1px solid var(--border-color);
+    transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
 .comparison-control-section {
@@ -78,19 +174,21 @@ body {
 .comparison-control-section h3 {
     margin-top: 0;
     margin-bottom: 8px;
-    color: #007bff;
+    color: var(--primary-color);
     font-size: 14px;
     font-weight: 600;
+    transition: color 0.3s ease;
 }
 
 .countries-list-container,
 .data-sets-list-container {
     max-height: 150px;
     overflow-y: auto;
-    border: 1px solid #dee2e6;
+    border: 1px solid var(--border-color);
     border-radius: 4px;
     padding: 6px;
-    background: white;
+    background: var(--card-bg);
+    transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
 .country-checkbox-item,
@@ -103,7 +201,7 @@ body {
 
 .country-checkbox-item:hover,
 .data-radio-item:hover {
-    background-color: #f8f9fa;
+    background-color: var(--hover-bg);
 }
 
 .country-checkbox-item label,
@@ -112,9 +210,10 @@ body {
     align-items: center;
     cursor: pointer;
     font-size: 12px;
-    color: #495057;
+    color: var(--text-color);
     margin: 0;
     line-height: 1.3;
+    transition: color 0.3s ease;
 }
 
 .country-checkbox-item input[type="checkbox"],
@@ -129,7 +228,7 @@ body {
 .country-checkbox-item input[type="checkbox"]:checked + span,
 .data-radio-item input[type="radio"]:checked + span {
     font-weight: 600;
-    color: #007bff;
+    color: var(--primary-color);
 }
 
 .chart-container {
@@ -159,21 +258,25 @@ body {
     width: 100%;
     padding: 5px;
     font-size: 13px;
-    border: 1px solid #ccc;
+    border: 1px solid var(--border-color);
     border-radius: 3px;
     font-family: 'Arial', 'Helvetica', sans-serif;
     margin-bottom: 5px;
+    background-color: var(--card-bg);
+    color: var(--text-color);
+    transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
 }
 
 .notification {
-    background-color: #fff3cd;
-    border: 1px solid #ffc107;
+    background-color: var(--notification-bg);
+    border: 1px solid var(--notification-border);
     border-radius: 5px;
     padding: 12px 40px 12px 20px;
     max-width: 80%;
     text-align: center;
     font-size: 14px;
-    color: #856404;
+    color: var(--notification-text);
+    transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     position: absolute;
     top: 20px;
@@ -230,7 +333,7 @@ body {
     width: 100%;
     padding: 8px 15px;
     font-size: 13px;
-    background-color: #007bff;
+    background-color: var(--primary-color);
     color: white;
     border: none;
     border-radius: 3px;
@@ -240,11 +343,11 @@ body {
 }
 
 .statistics-button:hover {
-    background-color: #0056b3;
+    background-color: var(--primary-hover);
 }
 
 .statistics-button:active {
-    background-color: #004085;
+    opacity: 0.8;
 }
 
 /* Модальное окно */
@@ -275,10 +378,10 @@ body {
 }
 
 .modal-content {
-    background-color: #fefefe;
+    background-color: var(--card-bg);
     margin: 5% auto;
     padding: 0;
-    border: 1px solid #888;
+    border: 1px solid var(--border-color);
     border-radius: 8px;
     width: 90%;
     max-width: 800px;
@@ -286,6 +389,7 @@ body {
     overflow-y: auto;
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
     animation: slideIn 0.3s;
+    transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
 @keyframes slideIn {
@@ -301,12 +405,13 @@ body {
 
 .modal-header {
     padding: 20px;
-    background-color: #007bff;
+    background-color: var(--primary-color);
     color: white;
     border-radius: 8px 8px 0 0;
     display: flex;
     justify-content: space-between;
     align-items: center;
+    transition: background-color 0.3s ease;
 }
 
 .modal-header h2 {
@@ -330,21 +435,26 @@ body {
 
 .modal-body {
     padding: 20px;
+    background-color: var(--card-bg);
+    color: var(--text-color);
+    transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 .statistics-section {
     margin-bottom: 30px;
     padding: 15px;
-    background-color: #f8f9fa;
+    background-color: var(--secondary-bg);
     border-radius: 5px;
-    border-left: 4px solid #007bff;
+    border-left: 4px solid var(--primary-color);
+    transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
 .statistics-section h3 {
     margin-top: 0;
     margin-bottom: 15px;
-    color: #007bff;
+    color: var(--primary-color);
     font-size: 18px;
+    transition: color 0.3s ease;
 }
 
 .statistics-table {
@@ -357,43 +467,50 @@ body {
 .statistics-table td {
     padding: 10px;
     text-align: left;
-    border-bottom: 1px solid #ddd;
+    border-bottom: 1px solid var(--table-border);
+    color: var(--text-color);
+    transition: border-color 0.3s ease, color 0.3s ease;
 }
 
 .statistics-table th {
-    background-color: #e9ecef;
+    background-color: var(--secondary-bg);
     font-weight: bold;
-    color: #495057;
+    color: var(--text-color);
+    transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 .statistics-table tr:hover {
-    background-color: #f1f3f5;
+    background-color: var(--hover-bg);
 }
 
 .statistics-item {
     margin: 8px 0;
     padding: 8px;
-    background-color: white;
+    background-color: var(--card-bg);
     border-radius: 3px;
+    transition: background-color 0.3s ease;
 }
 
 .statistics-label {
     font-weight: bold;
-    color: #495057;
+    color: var(--text-color);
     margin-right: 10px;
+    transition: color 0.3s ease;
 }
 
 .statistics-value {
-    color: #212529;
+    color: var(--text-color);
+    transition: color 0.3s ease;
 }
 
 /* Стили для секции корреляции */
 .correlation-section {
     margin: 0;
     padding: 20px;
-    background: #f8f9fa;
+    background: var(--secondary-bg);
     border-radius: 8px;
-    border: 1px solid #dee2e6;
+    border: 1px solid var(--border-color);
+    transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
 .correlation-section h2 {
@@ -420,17 +537,44 @@ body {
 .correlation-control-item label {
     margin-bottom: 5px;
     font-weight: bold;
-    color: #495057;
+    color: var(--text-color);
     font-size: 13px;
+    transition: color 0.3s ease;
 }
 
 .correlation-select {
     padding: 8px;
     font-size: 13px;
-    border: 1px solid #ccc;
+    border: 1px solid var(--border-color);
     border-radius: 3px;
     font-family: 'Arial', 'Helvetica', sans-serif;
-    background-color: white;
+    background-color: var(--card-bg);
+    color: var(--text-color);
+    transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
+}
+
+/* Стили для select и option элементов в темной теме */
+select,
+option {
+    background-color: var(--card-bg);
+    color: var(--text-color);
+}
+
+select:focus {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+}
+
+/* Стили для input элементов */
+input[type="color"],
+input[type="checkbox"],
+input[type="radio"] {
+    cursor: pointer;
+}
+
+input[type="checkbox"],
+input[type="radio"] {
+    accent-color: var(--primary-color);
 }
 
 .correlation-button {
@@ -442,7 +586,7 @@ body {
     border-radius: 3px;
     cursor: pointer;
     font-family: 'Arial', 'Helvetica', sans-serif;
-    transition: background-color 0.2s;
+    transition: background-color 0.2s, opacity 0.2s;
     white-space: nowrap;
 }
 
@@ -457,6 +601,7 @@ body {
 .correlation-button:disabled {
     background-color: #6c757d;
     cursor: not-allowed;
+    opacity: 0.6;
 }
 
 .correlation-chart-container {
@@ -464,23 +609,26 @@ body {
     height: 400px;
     margin-top: 20px;
     padding: 15px;
-    background: white;
+    background: var(--card-bg);
     border-radius: 5px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    transition: background-color 0.3s ease;
 }
 
 .correlation-info {
     margin-top: 15px;
     padding: 15px;
-    background-color: #e7f3ff;
+    background-color: var(--secondary-bg);
     border-radius: 5px;
-    border-left: 4px solid #007bff;
+    border-left: 4px solid var(--primary-color);
+    transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
 .correlation-info h3 {
     margin-top: 0;
-    color: #007bff;
+    color: var(--primary-color);
     font-size: 16px;
+    transition: color 0.3s ease;
 }
 
 .correlation-info-item {
@@ -490,10 +638,69 @@ body {
 
 .correlation-info-label {
     font-weight: bold;
-    color: #495057;
+    color: var(--text-color);
     margin-right: 10px;
+    transition: color 0.3s ease;
 }
 
 .correlation-info-value {
-    color: #212529;
+    color: var(--text-color);
+    transition: color 0.3s ease;
+}
+
+/* Стили для скроллбаров */
+.countries-list-container::-webkit-scrollbar,
+.data-sets-list-container::-webkit-scrollbar,
+.modal-content::-webkit-scrollbar {
+    width: 10px;
+}
+
+.countries-list-container::-webkit-scrollbar-track,
+.data-sets-list-container::-webkit-scrollbar-track,
+.modal-content::-webkit-scrollbar-track {
+    background: var(--secondary-bg);
+    border-radius: 5px;
+}
+
+.countries-list-container::-webkit-scrollbar-thumb,
+.data-sets-list-container::-webkit-scrollbar-thumb,
+.modal-content::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 5px;
+}
+
+.countries-list-container::-webkit-scrollbar-thumb:hover,
+.data-sets-list-container::-webkit-scrollbar-thumb:hover,
+.modal-content::-webkit-scrollbar-thumb:hover {
+    background: var(--primary-color);
+}
+
+/* Стили для summary блоков в статистике */
+.statistics-summary {
+    padding: 15px;
+    border-radius: 5px;
+    margin-bottom: 15px;
+    transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+}
+
+.statistics-summary p {
+    margin: 0;
+    line-height: 1.6;
+    color: var(--text-color);
+    transition: color 0.3s ease;
+}
+
+/* Стили для summary блоков в статистике */
+.statistics-summary {
+    padding: 15px;
+    border-radius: 5px;
+    margin-bottom: 15px;
+    transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+}
+
+.statistics-summary p {
+    margin: 0;
+    line-height: 1.6;
+    color: var(--text-color);
+    transition: color 0.3s ease;
 }

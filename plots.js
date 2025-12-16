@@ -6,6 +6,115 @@ let dataSetsList = []; // Список наборов данных
 let selectedCountriesCodes = []; // Выбранные коды стран
 let selectedDataSetCode = null; // Выбранный набор данных
 
+// ==================== ТЕМНАЯ ТЕМА ====================
+
+// Инициализация темы
+function initTheme() {
+    const themeToggle = document.getElementById('themeToggle');
+    const body = document.body;
+    
+    // Проверяем сохраненную тему
+    const savedTheme = localStorage.getItem('theme');
+    const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    
+    // Устанавливаем тему: сохраненная > системная > светлая
+    const isDark = savedTheme === 'dark' || (!savedTheme && prefersDark);
+    
+    if (isDark) {
+        body.classList.add('dark-theme');
+        if (themeToggle) {
+            themeToggle.querySelector('.theme-icon').textContent = '☀️';
+        }
+    } else {
+        body.classList.remove('dark-theme');
+        if (themeToggle) {
+            themeToggle.querySelector('.theme-icon').textContent = '🌙';
+        }
+    }
+    
+    // Обработчик переключения темы
+    if (themeToggle) {
+        themeToggle.addEventListener('click', toggleTheme);
+    }
+}
+
+// Переключение темы
+function toggleTheme() {
+    const body = document.body;
+    const themeToggle = document.getElementById('themeToggle');
+    const icon = themeToggle?.querySelector('.theme-icon');
+    
+    if (body.classList.contains('dark-theme')) {
+        body.classList.remove('dark-theme');
+        localStorage.setItem('theme', 'light');
+        if (icon) icon.textContent = '🌙';
+    } else {
+        body.classList.add('dark-theme');
+        localStorage.setItem('theme', 'dark');
+        if (icon) icon.textContent = '☀️';
+    }
+    
+    // Обновляем графики Chart.js для темной темы
+    updateChartsTheme();
+    
+    // Обновляем модальные окна, если они открыты
+    // Пересоздаем содержимое модальных окон с правильными цветами
+    const statisticsModal = document.getElementById('statisticsModal');
+    if (statisticsModal && statisticsModal.classList.contains('show')) {
+        // Если модальное окно статистики открыто, пересоздаем его содержимое
+        if (typeof window.openStatisticsModal === 'function') {
+            window.openStatisticsModal();
+        }
+    }
+    
+    const correlationModal = document.getElementById('correlationModal');
+    if (correlationModal && correlationModal.classList.contains('show') && correlationData) {
+        // Если модальное окно корреляции открыто, пересоздаем его содержимое
+        calculateAndDisplayCorrelation(correlationData);
+    }
+}
+
+// Обновление темы графиков Chart.js
+function updateChartsTheme() {
+    const isDark = document.body.classList.contains('dark-theme');
+    const textColor = isDark ? '#e0e0e0' : '#212529';
+    const gridColor = isDark ? '#404040' : '#e0e0e0';
+    
+    // Обновляем основной график
+    if (chart) {
+        chart.options.scales.x.ticks.color = textColor;
+        chart.options.scales.y.ticks.color = textColor;
+        chart.options.scales.x.grid.color = gridColor;
+        chart.options.scales.y.grid.color = gridColor;
+        chart.options.plugins.title.color = textColor;
+        chart.options.plugins.legend.labels.color = textColor;
+        chart.update('none');
+    }
+    
+    // Обновляем график корреляции
+    if (correlationChart) {
+        correlationChart.options.scales.x.ticks.color = textColor;
+        correlationChart.options.scales.y.ticks.color = textColor;
+        correlationChart.options.scales.x.grid.color = gridColor;
+        correlationChart.options.scales.y.grid.color = gridColor;
+        correlationChart.options.plugins.title.color = textColor;
+        correlationChart.update('none');
+    }
+}
+
+// Инициализация темы при загрузке
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+        initTheme();
+        // Обновляем графики после небольшой задержки, чтобы они успели создаться
+        setTimeout(updateChartsTheme, 500);
+    });
+} else {
+    initTheme();
+    // Обновляем графики после небольшой задержки, чтобы они успели создаться
+    setTimeout(updateChartsTheme, 500);
+}
+
 // ==================== СИСТЕМА ВКЛАДОК ====================
 
 // Инициализация системы вкладок
@@ -312,6 +421,9 @@ function updateChart() {
             chart.options.plugins.title.text = dataName || 'Данные Всемирной организации здравоохранения';
         }
         
+        // Обновляем цвета для текущей темы
+        updateChartsTheme();
+        
         chart.update();
         updateGraphSelector();
     } else {
@@ -326,6 +438,11 @@ function createChart() {
     // Регистрируем шрифт перед созданием графика
     Chart.defaults.font.family = 'Arial, Helvetica, sans-serif';
     Chart.defaults.font.size = 12;
+    
+    // Получаем цвета для текущей темы
+    const isDark = document.body.classList.contains('dark-theme');
+    const textColor = isDark ? '#e0e0e0' : '#212529';
+    const gridColor = isDark ? '#404040' : '#e0e0e0';
 
     let dataYears = [];
     let dataSetsArray = [];
@@ -369,13 +486,15 @@ function createChart() {
                     font: {
                         family: 'Arial, Helvetica, sans-serif',
                         size: 16
-                    }
+                    },
+                    color: textColor
                 },
                 legend: {
                     labels: {
                         font: {
                             family: 'Arial, Helvetica, sans-serif'
-                        }
+                        },
+                        color: textColor
                     }
                 }
             },
@@ -384,14 +503,22 @@ function createChart() {
                     ticks: {
                         font: {
                             family: 'Arial, Helvetica, sans-serif'
-                        }
+                        },
+                        color: textColor
+                    },
+                    grid: {
+                        color: gridColor
                     }
                 },
                 y: {
                     ticks: {
                         font: {
                             family: 'Arial, Helvetica, sans-serif'
-                        }
+                        },
+                        color: textColor
+                    },
+                    grid: {
+                        color: gridColor
                     },
                     beginAtZero: false
                 }
@@ -1011,8 +1138,8 @@ window.openStatisticsModal = function() {
         html += `<h3>${stat.countryName}</h3>`;
         
         // Добавляем текстовый вывод
-        html += '<div class="statistics-summary" style="background-color: #e7f3ff; padding: 15px; border-radius: 5px; margin-bottom: 15px; border-left: 4px solid #007bff;">';
-        html += `<p style="margin: 0; line-height: 1.6; color: #333;">${generateCountrySummary(stat)}</p>`;
+        html += '<div class="statistics-summary" style="background-color: var(--info-bg); padding: 15px; border-radius: 5px; margin-bottom: 15px; border-left: 4px solid var(--primary-color);">';
+        html += `<p style="margin: 0; line-height: 1.6; color: var(--info-text);">${generateCountrySummary(stat)}</p>`;
         html += '</div>';
         
         html += '<table class="statistics-table">';
@@ -1040,7 +1167,7 @@ window.openStatisticsModal = function() {
     if (statistics.length > 1) {
         html += '<div class="statistics-section">';
         html += '<h3>Сравнительная статистика по всем графикам</h3>';
-        html += '<p style="margin-bottom: 15px; color: #666; font-size: 13px;">Сравнение статистических показателей между всеми выбранными странами. Для каждого показателя (например, "Максимальное значение") берется значение по каждому графику, затем находятся минимум, максимум и среднее среди всех графиков.</p>';
+        html += '<p style="margin-bottom: 15px; color: var(--text-color); opacity: 0.7; font-size: 13px;">Сравнение статистических показателей между всеми выбранными странами. Для каждого показателя (например, "Максимальное значение") берется значение по каждому графику, затем находятся минимум, максимум и среднее среди всех графиков.</p>';
         html += '<table class="statistics-table">';
         html += '<tr><th>Параметр</th><th>Минимум<br/><span style="font-size: 11px; font-weight: normal;">(самый низкий среди всех графиков)</span></th><th>Максимум<br/><span style="font-size: 11px; font-weight: normal;">(самый высокий среди всех графиков)</span></th><th>Среднее<br/><span style="font-size: 11px; font-weight: normal;">(среднее по всем графикам)</span></th></tr>';
         
@@ -1050,24 +1177,24 @@ window.openStatisticsModal = function() {
         const allStdDevs = statistics.map(s => parseFloat(s.stdDev)).filter(v => !isNaN(v));
         
         if (allMeans.length > 0) {
-            html += `<tr><td><strong>Среднее значение</strong><br/><span style="font-size: 11px; color: #666;">(среднее по каждому графику)</span></td><td>${Math.min(...allMeans).toFixed(2)}</td><td>${Math.max(...allMeans).toFixed(2)}</td><td>${calculateMean(allMeans).toFixed(2)}</td></tr>`;
+            html += `<tr><td><strong>Среднее значение</strong><br/><span style="font-size: 11px; color: var(--text-color); opacity: 0.7;">(среднее по каждому графику)</span></td><td>${Math.min(...allMeans).toFixed(2)}</td><td>${Math.max(...allMeans).toFixed(2)}</td><td>${calculateMean(allMeans).toFixed(2)}</td></tr>`;
         }
         if (allMins.length > 0) {
-            html += `<tr><td><strong>Минимальное значение</strong><br/><span style="font-size: 11px; color: #666;">(минимум по каждому графику)</span></td><td>${Math.min(...allMins).toFixed(2)}</td><td>${Math.max(...allMins).toFixed(2)}</td><td>${calculateMean(allMins).toFixed(2)}</td></tr>`;
+            html += `<tr><td><strong>Минимальное значение</strong><br/><span style="font-size: 11px; color: var(--text-color); opacity: 0.7;">(минимум по каждому графику)</span></td><td>${Math.min(...allMins).toFixed(2)}</td><td>${Math.max(...allMins).toFixed(2)}</td><td>${calculateMean(allMins).toFixed(2)}</td></tr>`;
         }
         if (allMaxs.length > 0) {
-            html += `<tr><td><strong>Максимальное значение</strong><br/><span style="font-size: 11px; color: #666;">Для каждого графика найдено максимальное значение. Здесь показаны: минимальный максимум, максимальный максимум и среднее всех максимумов.</span></td><td>${Math.min(...allMaxs).toFixed(2)}</td><td>${Math.max(...allMaxs).toFixed(2)}</td><td>${calculateMean(allMaxs).toFixed(2)}</td></tr>`;
+            html += `<tr><td><strong>Максимальное значение</strong><br/><span style="font-size: 11px; color: var(--text-color); opacity: 0.7;">Для каждого графика найдено максимальное значение. Здесь показаны: минимальный максимум, максимальный максимум и среднее всех максимумов.</span></td><td>${Math.min(...allMaxs).toFixed(2)}</td><td>${Math.max(...allMaxs).toFixed(2)}</td><td>${calculateMean(allMaxs).toFixed(2)}</td></tr>`;
         }
         if (allStdDevs.length > 0) {
-            html += `<tr><td><strong>Стандартное отклонение</strong><br/><span style="font-size: 11px; color: #666;">(отклонение по каждому графику)</span></td><td>${Math.min(...allStdDevs).toFixed(2)}</td><td>${Math.max(...allStdDevs).toFixed(2)}</td><td>${calculateMean(allStdDevs).toFixed(2)}</td></tr>`;
+            html += `<tr><td><strong>Стандартное отклонение</strong><br/><span style="font-size: 11px; color: var(--text-color); opacity: 0.7;">(отклонение по каждому графику)</span></td><td>${Math.min(...allStdDevs).toFixed(2)}</td><td>${Math.max(...allStdDevs).toFixed(2)}</td><td>${calculateMean(allStdDevs).toFixed(2)}</td></tr>`;
         }
         
         html += '</table>';
         
         // Добавляем общий вывод
-        html += '<div class="statistics-summary" style="background-color: #fff3cd; padding: 15px; border-radius: 5px; margin-top: 20px; border-left: 4px solid #ffc107;">';
-        html += '<h4 style="margin-top: 0; color: #856404;">Общий вывод</h4>';
-        html += '<p style="margin: 0; line-height: 1.6; color: #333;">';
+        html += '<div class="statistics-summary" style="background-color: var(--warning-bg); padding: 15px; border-radius: 5px; margin-top: 20px; border-left: 4px solid var(--notification-border);">';
+        html += '<h4 style="margin-top: 0; color: var(--warning-text);">Общий вывод</h4>';
+        html += '<p style="margin: 0; line-height: 1.6; color: var(--text-color);">';
         
         // Находим страны с экстремальными значениями
         const meanValues = statistics.map(s => ({ name: s.countryName, value: parseFloat(s.mean) })).filter(v => !isNaN(v.value));
@@ -1398,6 +1525,11 @@ function displayCorrelationChart(data, synchronized, correlation) {
         correlationChart.destroy();
     }
 
+    // Получаем цвета для текущей темы
+    const isDark = document.body.classList.contains('dark-theme');
+    const textColor = isDark ? '#e0e0e0' : '#212529';
+    const gridColor = isDark ? '#404040' : '#e0e0e0';
+
     // Создаем scatter plot для корреляции
     const scatterData = synchronized.years.map((year, index) => ({
         x: synchronized.factor1Values[index],
@@ -1429,7 +1561,8 @@ function displayCorrelationChart(data, synchronized, correlation) {
                     font: {
                         family: 'Arial, Helvetica, sans-serif',
                         size: 16
-                    }
+                    },
+                    color: textColor
                 },
                 tooltip: {
                     callbacks: {
@@ -1553,19 +1686,40 @@ function displayCorrelationInfo(data, synchronized, correlation) {
         data.factor2.dataSetInfo.name
     );
 
-    let html = `<h3 style="margin-top: 0; color: #007bff; font-size: 16px;">Результаты корреляционного анализа для ${countryName}</h3>`;
-    html += `<p style="margin: 8px 0;"><strong>Коэффициент корреляции Пирсона:</strong> ${correlation.toFixed(4)}</p>`;
-    html += `<p style="margin: 8px 0;"><strong>Интерпретация:</strong> ${interpretation} ${direction} корреляция</p>`;
-    html += `<p style="margin: 8px 0;"><strong>Количество точек данных:</strong> ${synchronized.years.length}</p>`;
-    html += `<p style="margin: 8px 0;"><strong>Период:</strong> ${synchronized.years[0]} - ${synchronized.years[synchronized.years.length - 1]}</p>`;
+    // Определяем цвета для текущей темы
+    const isDark = document.body.classList.contains('dark-theme');
+    let alertBg, alertText, alertBorder;
+    if (dependency.color === '#28a745') {
+        alertBg = isDark ? 'var(--success-bg)' : '#d4edda';
+        alertText = isDark ? 'var(--success-text)' : '#155724';
+        alertBorder = '#28a745';
+    } else if (dependency.color === '#ffc107') {
+        alertBg = isDark ? 'var(--warning-bg)' : '#fff3cd';
+        alertText = isDark ? 'var(--warning-text)' : '#856404';
+        alertBorder = '#ffc107';
+    } else if (dependency.color === '#ff9800') {
+        alertBg = isDark ? '#4a2a00' : '#ffe0b2';
+        alertText = isDark ? '#ffb366' : '#e65100';
+        alertBorder = '#ff9800';
+    } else {
+        alertBg = isDark ? '#4a1a1a' : '#f8d7da';
+        alertText = isDark ? '#ff9999' : '#721c24';
+        alertBorder = '#dc3545';
+    }
+    
+    let html = `<h3 style="margin-top: 0; color: var(--primary-color); font-size: 16px;">Результаты корреляционного анализа для ${countryName}</h3>`;
+    html += `<p style="margin: 8px 0; color: var(--text-color);"><strong>Коэффициент корреляции Пирсона:</strong> ${correlation.toFixed(4)}</p>`;
+    html += `<p style="margin: 8px 0; color: var(--text-color);"><strong>Интерпретация:</strong> ${interpretation} ${direction} корреляция</p>`;
+    html += `<p style="margin: 8px 0; color: var(--text-color);"><strong>Количество точек данных:</strong> ${synchronized.years.length}</p>`;
+    html += `<p style="margin: 8px 0; color: var(--text-color);"><strong>Период:</strong> ${synchronized.years[0]} - ${synchronized.years[synchronized.years.length - 1]}</p>`;
     
     // Добавляем вывод о зависимости
-    html += `<div style="margin-top: 15px; padding: 12px; background-color: ${dependency.color === '#28a745' ? '#d4edda' : dependency.color === '#ffc107' ? '#fff3cd' : dependency.color === '#ff9800' ? '#ffe0b2' : '#f8d7da'}; border-left: 4px solid ${dependency.color}; border-radius: 4px;">`;
-    html += `<p style="margin: 0; color: ${dependency.color === '#28a745' ? '#155724' : dependency.color === '#ffc107' ? '#856404' : dependency.color === '#ff9800' ? '#e65100' : '#721c24'}; font-weight: bold; margin-bottom: 8px;">Вывод о зависимости факторов:</p>`;
-    html += `<p style="margin: 0; color: #333; line-height: 1.5;">${dependency.conclusion}</p>`;
+    html += `<div style="margin-top: 15px; padding: 12px; background-color: ${alertBg}; border-left: 4px solid ${alertBorder}; border-radius: 4px;">`;
+    html += `<p style="margin: 0; color: ${alertText}; font-weight: bold; margin-bottom: 8px;">Вывод о зависимости факторов:</p>`;
+    html += `<p style="margin: 0; color: var(--text-color); line-height: 1.5;">${dependency.conclusion}</p>`;
     html += `</div>`;
     
-    html += `<p style="margin: 8px 0; color: #666; font-size: 13px;">Подробная статистика доступна в модальном окне</p>`;
+    html += `<p style="margin: 8px 0; color: var(--text-color); opacity: 0.7; font-size: 13px;">Подробная статистика доступна в модальном окне</p>`;
 
     infoDiv.innerHTML = html;
     infoDiv.style.display = 'block';
@@ -1628,8 +1782,28 @@ function displayCorrelationStatistics(data, synchronized, correlation) {
     
     html += '<div class="correlation-info" style="margin-top: 15px;">';
     html += '<h3>Вывод о зависимости факторов</h3>';
-    html += `<div style="padding: 15px; background-color: ${dependency.color === '#28a745' ? '#d4edda' : dependency.color === '#ffc107' ? '#fff3cd' : dependency.color === '#ff9800' ? '#ffe0b2' : '#f8d7da'}; border-left: 4px solid ${dependency.color}; border-radius: 4px; margin-top: 10px;">`;
-    html += `<p style="margin: 0; color: ${dependency.color === '#28a745' ? '#155724' : dependency.color === '#ffc107' ? '#856404' : dependency.color === '#ff9800' ? '#e65100' : '#721c24'}; line-height: 1.6;">${dependency.conclusion}</p>`;
+    // Используем CSS переменные для цветов в зависимости от типа корреляции
+    const isDark = document.body.classList.contains('dark-theme');
+    let alertBg, alertText, alertBorder;
+    if (dependency.color === '#28a745') {
+        alertBg = isDark ? 'var(--success-bg)' : '#d4edda';
+        alertText = isDark ? 'var(--success-text)' : '#155724';
+        alertBorder = '#28a745';
+    } else if (dependency.color === '#ffc107') {
+        alertBg = isDark ? 'var(--warning-bg)' : '#fff3cd';
+        alertText = isDark ? 'var(--warning-text)' : '#856404';
+        alertBorder = '#ffc107';
+    } else if (dependency.color === '#ff9800') {
+        alertBg = isDark ? '#4a2a00' : '#ffe0b2';
+        alertText = isDark ? '#ffb366' : '#e65100';
+        alertBorder = '#ff9800';
+    } else {
+        alertBg = isDark ? '#4a1a1a' : '#f8d7da';
+        alertText = isDark ? '#ff9999' : '#721c24';
+        alertBorder = '#dc3545';
+    }
+    html += `<div style="padding: 15px; background-color: ${alertBg}; border-left: 4px solid ${alertBorder}; border-radius: 4px; margin-top: 10px;">`;
+    html += `<p style="margin: 0; color: ${alertText}; line-height: 1.6;">${dependency.conclusion}</p>`;
     html += '</div>';
     html += '</div>';
 
