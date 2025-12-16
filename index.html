@@ -8,33 +8,94 @@
 <body>
     <h1>Данные Всемирной организации здравоохранения</h1>
     
-    <div id="notification" class="notification hidden" style="display: none;">
-        <span id="notificationText"></span>
-        <span class="notification-close" onclick="hideNotification()">×</span>
-    </div>
-    
-    <div class="chart-container">
-        <canvas id="myChart"></canvas>
-    </div>
+    <!-- Система вкладок -->
+    <div class="tabs-container">
+        <div class="tabs-header">
+            <button class="tab-button active" data-tab="comparison">Сравнение нескольких стран</button>
+            <button class="tab-button" data-tab="correlation">Корреляционный анализ</button>
+        </div>
+        
+        <!-- Вкладка: Сравнение нескольких стран -->
+        <div class="tab-content active" id="tab-comparison">
+            <div id="notification" class="notification hidden" style="display: none;">
+                <span id="notificationText"></span>
+                <span class="notification-close" onclick="hideNotification()">×</span>
+            </div>
+            
+            <!-- Панель выбора стран и данных -->
+            <div class="comparison-controls">
+                <div class="comparison-control-section">
+                    <h3>Выбор стран</h3>
+                    <div class="countries-list-container" id="countriesListContainer">
+                        <p>Загрузка списка стран...</p>
+                    </div>
+                </div>
+                <div class="comparison-control-section">
+                    <h3>Выбор данных</h3>
+                    <div class="data-sets-list-container" id="dataSetsListContainer">
+                        <p>Загрузка списка данных...</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="chart-container">
+                <canvas id="myChart"></canvas>
+            </div>
 
-    <div class="panel-container">
-        <div class="color-container">
-            <select id="graphSelector" class="graph-select">
-                <option value="-1">Выберите график</option>
-            </select>
+            <div class="panel-container">
+                <div class="color-container">
+                    <select id="graphSelector" class="graph-select">
+                        <option value="-1">Выберите график</option>
+                    </select>
+                </div>
+                <div class="color-container" id="plotColorContainer" style="display: none;">
+                    <input type="color" id="plotColor" class="color-input" value="#ff0000">
+                    <div class="color-preview" id="plotColorPreview"></div>
+                    Цвет графика
+                </div>
+                <div class="color-container" id="plotBackgroundColorContainer" style="display: none;">
+                    <input type="color" id="plotBackgroundColor" class="color-input" value="#ffffff">
+                    <div class="color-preview" id="plotBackgroundColorPreview"></div>
+                    Цвет фона под графиком
+                </div>
+                <div class="color-container">
+                    <button id="statisticsButton" class="statistics-button" onclick="if(typeof window.openStatisticsModal === 'function') window.openStatisticsModal(); else console.error('openStatisticsModal not available');">Статистика</button>
+                </div>
+            </div>
         </div>
-        <div class="color-container" id="plotColorContainer" style="display: none;">
-            <input type="color" id="plotColor" class="color-input" value="#ff0000">
-            <div class="color-preview" id="plotColorPreview"></div>
-            Цвет графика
-        </div>
-        <div class="color-container" id="plotBackgroundColorContainer" style="display: none;">
-            <input type="color" id="plotBackgroundColor" class="color-input" value="#ffffff">
-            <div class="color-preview" id="plotBackgroundColorPreview"></div>
-            Цвет фона под графиком
-        </div>
-        <div class="color-container">
-            <button id="statisticsButton" class="statistics-button" onclick="if(typeof window.openStatisticsModal === 'function') window.openStatisticsModal(); else console.error('openStatisticsModal not available');">Статистика</button>
+
+        <!-- Вкладка: Корреляционный анализ -->
+        <div class="tab-content" id="tab-correlation">
+            <div class="correlation-section">
+                <h2>Анализ корреляции факторов</h2>
+                <div class="correlation-controls">
+                    <div class="correlation-control-item">
+                        <label for="correlationCountry">Страна:</label>
+                        <select id="correlationCountry" class="correlation-select">
+                            <option value="">Выберите страну</option>
+                        </select>
+                    </div>
+                    <div class="correlation-control-item">
+                        <label for="correlationFactor1">Фактор 1:</label>
+                        <select id="correlationFactor1" class="correlation-select">
+                            <option value="">Выберите фактор</option>
+                        </select>
+                    </div>
+                    <div class="correlation-control-item">
+                        <label for="correlationFactor2">Фактор 2:</label>
+                        <select id="correlationFactor2" class="correlation-select">
+                            <option value="">Выберите фактор</option>
+                        </select>
+                    </div>
+                    <div class="correlation-control-item">
+                        <button id="calculateCorrelationButton" class="correlation-button">Рассчитать корреляцию</button>
+                    </div>
+                </div>
+                <div class="correlation-chart-container" id="correlationChartContainer" style="display: none;">
+                    <canvas id="correlationChart"></canvas>
+                    <div id="correlationInfo" class="correlation-info" style="margin-top: 15px; display: none;"></div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -47,6 +108,19 @@
             </div>
             <div class="modal-body" id="statisticsContent">
                 <!-- Содержимое статистики будет добавлено через JavaScript -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно корреляции -->
+    <div id="correlationModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Результаты корреляционного анализа</h2>
+                <span class="modal-close" onclick="closeCorrelationModal()">&times;</span>
+            </div>
+            <div class="modal-body" id="correlationContent">
+                <!-- Содержимое корреляции будет добавлено через JavaScript -->
             </div>
         </div>
     </div>

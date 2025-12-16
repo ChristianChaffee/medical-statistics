@@ -2,6 +2,67 @@ const { ipcRenderer } = require('electron');
 
 let dataName, dataCountry;
 let countriesList = []; // Список стран для получения названий
+let dataSetsList = []; // Список наборов данных
+let selectedCountriesCodes = []; // Выбранные коды стран
+let selectedDataSetCode = null; // Выбранный набор данных
+
+// ==================== СИСТЕМА ВКЛАДОК ====================
+
+// Инициализация системы вкладок
+function initTabs() {
+    const tabButtons = document.querySelectorAll('.tab-button');
+    const tabContents = document.querySelectorAll('.tab-content');
+
+    tabButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            const targetTab = button.getAttribute('data-tab');
+
+            // Убираем активный класс со всех кнопок и контента
+            tabButtons.forEach(btn => btn.classList.remove('active'));
+            tabContents.forEach(content => content.classList.remove('active'));
+
+            // Добавляем активный класс к выбранной кнопке и соответствующему контенту
+            button.classList.add('active');
+            const targetContent = document.getElementById(`tab-${targetTab}`);
+            if (targetContent) {
+                targetContent.classList.add('active');
+            }
+
+            // Если переключились на вкладку корреляции, убеждаемся что список стран загружен
+            if (targetTab === 'correlation') {
+                // Проверяем, есть ли уже список стран
+                const countrySelect = document.getElementById('correlationCountry');
+                if (countrySelect) {
+                    // Если список стран уже загружен, но селектор пуст, обновляем его
+                    if (countriesList && countriesList.length > 0 && countrySelect.options.length <= 1) {
+                        updateCorrelationCountrySelector();
+                    }
+                    // Если списка стран нет, запрашиваем его
+                    else if (!countriesList || countriesList.length === 0) {
+                        ipcRenderer.send('get-countries');
+                    }
+                }
+                // Инициализируем элементы корреляции, если еще не инициализированы
+                setTimeout(() => {
+                    initCorrelationElements();
+                }, 100);
+            }
+        });
+    });
+}
+
+// Инициализация вкладок при загрузке
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+        initTabs();
+        // Запрашиваем список стран при загрузке страницы
+        ipcRenderer.send('get-countries');
+    });
+} else {
+    initTabs();
+    // Запрашиваем список стран при загрузке страницы
+    ipcRenderer.send('get-countries');
+}
 
 let dataSet = [
 
@@ -18,8 +79,17 @@ ipcRenderer.on('parse-data', (event, data) => {
     }
     
     // Сохраняем список стран, если он передан
+    // Важно: не перезаписываем список, если новый список пустой, а текущий уже загружен
     if (data.countriesList) {
-        countriesList = data.countriesList;
+        // Обновляем список стран только если:
+        // 1. Новый список не пустой, ИЛИ
+        // 2. Текущий список пустой (еще не загружен)
+        if (data.countriesList.length > 0 || countriesList.length === 0) {
+            countriesList = data.countriesList;
+        }
+        // Всегда обновляем UI, даже если список не изменился
+        updateCorrelationCountrySelector();
+        updateComparisonCountriesList();
     }
     
     // Показываем уведомление о странах без данных
@@ -39,12 +109,143 @@ ipcRenderer.on('main-data-update', (event, data) => {
     dataCountry = data.countryName;
     dataSet.label = dataName;
     updateChart();
+    
+    // Обновляем выбор набора данных в UI, если он изменился
+    if (dataSetsList && dataSetsList.length > 0) {
+        const matchingDataSet = dataSetsList.find(ds => ds[1] === dataName);
+        if (matchingDataSet) {
+            selectedDataSetCode = matchingDataSet[0];
+            updateComparisonDataSetsList(dataSetsList);
+        }
+    }
 });
 
 // Получаем список стран при загрузке
 ipcRenderer.on('countries-list', (event, countries) => {
     countriesList = countries;
+    // Обновляем список стран в селекторе корреляции
+    updateCorrelationCountrySelector();
+    // Обновляем список стран в панели сравнения
+    updateComparisonCountriesList();
 });
+
+// Получаем список наборов данных
+ipcRenderer.on('data-sets-list', (event, dataSets) => {
+    dataSetsList = dataSets;
+    // Если еще не выбран набор данных, выбираем первый
+    if (!selectedDataSetCode && dataSets.length > 0) {
+        selectedDataSetCode = dataSets[0][0];
+    }
+    updateComparisonDataSetsList(dataSets);
+});
+
+
+// Функция обновления списка стран в панели сравнения
+function updateComparisonCountriesList() {
+    const container = document.getElementById('countriesListContainer');
+    if (!container) {
+        return;
+    }
+    
+    // Проверяем, загружен ли список стран
+    if (!countriesList || countriesList.length === 0) {
+        container.innerHTML = '<p>Список стран не загружен</p>';
+        return;
+    }
+
+    // Отображаем список стран независимо от того, выбраны ли они
+    let html = '';
+    countriesList.forEach(country => {
+        const isChecked = selectedCountriesCodes.includes(country.code);
+        html += `<div class="country-checkbox-item">`;
+        html += `<label>`;
+        html += `<input type="checkbox" value="${country.code}" ${isChecked ? 'checked' : ''} onchange="handleCountrySelectionChange(this)">`;
+        html += `<span>${country.name}</span>`;
+        html += `</label>`;
+        html += `</div>`;
+    });
+
+    container.innerHTML = html;
+}
+
+// Функция обновления списка наборов данных в панели сравнения
+function updateComparisonDataSetsList(dataSets) {
+    const container = document.getElementById('dataSetsListContainer');
+    if (!container || !dataSets || dataSets.length === 0) {
+        if (container) {
+            container.innerHTML = '<p>Список данных не загружен</p>';
+        }
+        return;
+    }
+
+    let html = '';
+    dataSets.forEach(dataSet => {
+        const isChecked = selectedDataSetCode === dataSet[0];
+        html += `<div class="data-radio-item">`;
+        html += `<label>`;
+        html += `<input type="radio" name="dataSet" value="${dataSet[0]}" ${isChecked ? 'checked' : ''} onchange="handleDataSetSelectionChange(this)">`;
+        html += `<span>${dataSet[1]}</span>`;
+        html += `</label>`;
+        html += `</div>`;
+    });
+
+    container.innerHTML = html;
+}
+
+// Обработчик изменения выбора страны
+window.handleCountrySelectionChange = function(checkbox) {
+    const countryCode = checkbox.value;
+    
+    if (checkbox.checked) {
+        if (!selectedCountriesCodes.includes(countryCode)) {
+            selectedCountriesCodes.push(countryCode);
+        }
+    } else {
+        const index = selectedCountriesCodes.indexOf(countryCode);
+        if (index > -1) {
+            selectedCountriesCodes.splice(index, 1);
+        }
+    }
+
+    // Отправляем выбранные страны в main процесс
+    ipcRenderer.send('select-countries', selectedCountriesCodes);
+};
+
+// Обработчик изменения выбора набора данных
+window.handleDataSetSelectionChange = function(radio) {
+    selectedDataSetCode = radio.value;
+    
+    // Отправляем выбранный набор данных в main процесс
+    ipcRenderer.send('select-data-set', selectedDataSetCode);
+};
+
+// Запрашиваем список наборов данных при загрузке
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+        ipcRenderer.send('get-data-sets');
+    });
+} else {
+    ipcRenderer.send('get-data-sets');
+}
+
+// Функция для обновления только селектора стран в корреляции
+function updateCorrelationCountrySelector() {
+    const countrySelect = document.getElementById('correlationCountry');
+    if (countrySelect && countriesList && countriesList.length > 0) {
+        const currentValue = countrySelect.value; // Сохраняем текущее значение
+        countrySelect.innerHTML = '<option value="">Выберите страну</option>';
+        countriesList.forEach(country => {
+            const option = document.createElement('option');
+            option.value = country.code;
+            option.textContent = country.name;
+            countrySelect.appendChild(option);
+        });
+        // Восстанавливаем выбранное значение, если оно было
+        if (currentValue) {
+            countrySelect.value = currentValue;
+        }
+    }
+}
 
 let chart = null;
 
@@ -975,3 +1176,515 @@ document.addEventListener('click', function(event) {
     // Также пробуем через небольшую задержку на случай, если элементы еще не загружены
     setTimeout(attachHandler, 100);
 })();
+
+// ==================== ФУНКЦИИ ДЛЯ КОРРЕЛЯЦИИ ====================
+
+let correlationChart = null;
+let correlationData = null;
+
+// Инициализация элементов корреляции
+function initCorrelationElements() {
+    const countrySelect = document.getElementById('correlationCountry');
+    const factor1Select = document.getElementById('correlationFactor1');
+    const factor2Select = document.getElementById('correlationFactor2');
+    const calculateButton = document.getElementById('calculateCorrelationButton');
+
+    // Заполняем список стран (используем отдельную функцию)
+    updateCorrelationCountrySelector();
+
+    // Заполняем списки факторов (используем dataSets из main процесса)
+    // Нужно получить dataSets через IPC или использовать глобальную переменную
+    const dataSets = [
+        ["H2020_1", "Преждевременная смертность"],
+        ["H2020_2", "Табакокурение"],
+        ["H2020_9", "Ожирение"],
+        ["ENHIS_16", "Распространенность ожирения и избыточной массы тела у детей в возрасте 11 лет"],
+        ["ENHIS_17", "Распространенность ожирения и избыточной массы тела у детей в возрасте 13 лет"],
+        ["ENHIS_18", "Распространенность ожирения и избыточной массы тела у детей в возрасте 15 лет"]
+    ];
+
+    if (factor1Select) {
+        factor1Select.innerHTML = '<option value="">Выберите фактор</option>';
+        dataSets.forEach(dataset => {
+            const option = document.createElement('option');
+            option.value = dataset[0];
+            option.textContent = dataset[1];
+            factor1Select.appendChild(option);
+        });
+    }
+
+    if (factor2Select) {
+        factor2Select.innerHTML = '<option value="">Выберите фактор</option>';
+        dataSets.forEach(dataset => {
+            const option = document.createElement('option');
+            option.value = dataset[0];
+            option.textContent = dataset[1];
+            factor2Select.appendChild(option);
+        });
+    }
+
+    // Обработчик кнопки расчета корреляции (добавляем только один раз)
+    if (calculateButton && !calculateButton.hasAttribute('data-listener-attached')) {
+        calculateButton.addEventListener('click', handleCalculateCorrelation);
+        calculateButton.setAttribute('data-listener-attached', 'true');
+    }
+}
+
+// Обработчик расчета корреляции
+function handleCalculateCorrelation() {
+    const countrySelect = document.getElementById('correlationCountry');
+    const factor1Select = document.getElementById('correlationFactor1');
+    const factor2Select = document.getElementById('correlationFactor2');
+    const calculateButton = document.getElementById('calculateCorrelationButton');
+
+    const countryCode = countrySelect?.value;
+    const factor1Code = factor1Select?.value;
+    const factor2Code = factor2Select?.value;
+
+    if (!countryCode || !factor1Code || !factor2Code) {
+        showNotification(['Пожалуйста, выберите страну и оба фактора']);
+        return;
+    }
+
+    if (factor1Code === factor2Code) {
+        showNotification(['Пожалуйста, выберите два разных фактора']);
+        return;
+    }
+
+    // Отключаем кнопку на время загрузки
+    if (calculateButton) {
+        calculateButton.disabled = true;
+        calculateButton.textContent = 'Загрузка...';
+    }
+
+    // Отправляем запрос на загрузку данных
+    const { ipcRenderer } = require('electron');
+    ipcRenderer.send('load-correlation-data', {
+        countryCode: countryCode,
+        factor1Code: factor1Code,
+        factor2Code: factor2Code
+    });
+}
+
+// Обработчик получения данных корреляции
+ipcRenderer.on('correlation-data-loaded', (event, data) => {
+    const calculateButton = document.getElementById('calculateCorrelationButton');
+    
+    if (calculateButton) {
+        calculateButton.disabled = false;
+        calculateButton.textContent = 'Рассчитать корреляцию';
+    }
+
+    if (data.error) {
+        showNotification([data.error]);
+        return;
+    }
+
+    if (!data.factor1 || !data.factor2) {
+        showNotification(['Не удалось загрузить данные для одного или обоих факторов']);
+        return;
+    }
+
+    correlationData = data;
+    calculateAndDisplayCorrelation(data);
+});
+
+// Функция расчета корреляции Пирсона
+function calculatePearsonCorrelation(x, y) {
+    if (!x || !y || x.length !== y.length || x.length < 2) {
+        return null;
+    }
+
+    const n = x.length;
+    const sumX = x.reduce((a, b) => a + b, 0);
+    const sumY = y.reduce((a, b) => a + b, 0);
+    const sumXY = x.reduce((sum, val, i) => sum + val * y[i], 0);
+    const sumX2 = x.reduce((sum, val) => sum + val * val, 0);
+    const sumY2 = y.reduce((sum, val) => sum + val * val, 0);
+
+    const numerator = n * sumXY - sumX * sumY;
+    const denominator = Math.sqrt((n * sumX2 - sumX * sumX) * (n * sumY2 - sumY * sumY));
+
+    if (denominator === 0) {
+        return null;
+    }
+
+    return numerator / denominator;
+}
+
+// Функция для синхронизации данных по годам
+function synchronizeDataByYears(factor1, factor2) {
+    const commonYears = [];
+    const factor1Values = [];
+    const factor2Values = [];
+
+    // Создаем карты для быстрого поиска значений по годам
+    const factor1Map = new Map();
+    factor1.dataPoints.forEach(point => {
+        factor1Map.set(point.year, point.value);
+    });
+
+    const factor2Map = new Map();
+    factor2.dataPoints.forEach(point => {
+        factor2Map.set(point.year, point.value);
+    });
+
+    // Находим общие годы
+    const allYears = new Set([...factor1Map.keys(), ...factor2Map.keys()]);
+    allYears.forEach(year => {
+        if (factor1Map.has(year) && factor2Map.has(year)) {
+            commonYears.push(year);
+            factor1Values.push(factor1Map.get(year));
+            factor2Values.push(factor2Map.get(year));
+        }
+    });
+
+    // Сортируем по годам
+    const indices = commonYears.map((_, i) => i).sort((a, b) => commonYears[a] - commonYears[b]);
+    const sortedYears = indices.map(i => commonYears[i]);
+    const sortedFactor1Values = indices.map(i => factor1Values[i]);
+    const sortedFactor2Values = indices.map(i => factor2Values[i]);
+
+    return {
+        years: sortedYears,
+        factor1Values: sortedFactor1Values,
+        factor2Values: sortedFactor2Values
+    };
+}
+
+// Функция расчета и отображения корреляции
+function calculateAndDisplayCorrelation(data) {
+    const synchronized = synchronizeDataByYears(data.factor1, data.factor2);
+
+    if (synchronized.years.length < 2) {
+        showNotification(['Недостаточно общих данных для расчета корреляции']);
+        return;
+    }
+
+    // Вычисляем корреляцию
+    const correlation = calculatePearsonCorrelation(
+        synchronized.factor1Values,
+        synchronized.factor2Values
+    );
+
+    if (correlation === null) {
+        showNotification(['Не удалось вычислить корреляцию']);
+        return;
+    }
+
+    // Отображаем график
+    displayCorrelationChart(data, synchronized, correlation);
+
+    // Отображаем краткую информацию под графиком
+    displayCorrelationInfo(data, synchronized, correlation);
+
+    // Отображаем статистику в модальном окне
+    displayCorrelationStatistics(data, synchronized, correlation);
+}
+
+// Функция отображения графика корреляции
+function displayCorrelationChart(data, synchronized, correlation) {
+    const container = document.getElementById('correlationChartContainer');
+    const canvas = document.getElementById('correlationChart');
+    
+    if (!container || !canvas) return;
+
+    container.style.display = 'block';
+
+    const ctx = canvas.getContext('2d');
+
+    // Уничтожаем предыдущий график, если он существует
+    if (correlationChart) {
+        correlationChart.destroy();
+    }
+
+    // Создаем scatter plot для корреляции
+    const scatterData = synchronized.years.map((year, index) => ({
+        x: synchronized.factor1Values[index],
+        y: synchronized.factor2Values[index],
+        year: year
+    }));
+
+    correlationChart = new Chart(ctx, {
+        type: 'scatter',
+        data: {
+            datasets: [
+                {
+                    label: 'Корреляция',
+                    data: scatterData,
+                    backgroundColor: 'rgba(54, 162, 235, 0.6)',
+                    borderColor: 'rgba(54, 162, 235, 1)',
+                    pointRadius: 6,
+                    pointHoverRadius: 8
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                title: {
+                    display: true,
+                    text: `Корреляция: ${data.factor1.dataSetInfo.name} vs ${data.factor2.dataSetInfo.name}`,
+                    font: {
+                        family: 'Arial, Helvetica, sans-serif',
+                        size: 16
+                    }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const point = context.raw;
+                            return [
+                                `Год: ${point.year}`,
+                                `${data.factor1.dataSetInfo.name}: ${point.x.toFixed(2)}`,
+                                `${data.factor2.dataSetInfo.name}: ${point.y.toFixed(2)}`
+                            ];
+                        }
+                    }
+                },
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                x: {
+                    title: {
+                        display: true,
+                        text: `${data.factor1.dataSetInfo.name} (${data.factor1.dataSetInfo.unit})`,
+                        font: {
+                            family: 'Arial, Helvetica, sans-serif',
+                            size: 12
+                        }
+                    },
+                    ticks: {
+                        font: {
+                            family: 'Arial, Helvetica, sans-serif'
+                        }
+                    }
+                },
+                y: {
+                    title: {
+                        display: true,
+                        text: `${data.factor2.dataSetInfo.name} (${data.factor2.dataSetInfo.unit})`,
+                        font: {
+                            family: 'Arial, Helvetica, sans-serif',
+                            size: 12
+                        }
+                    },
+                    ticks: {
+                        font: {
+                            family: 'Arial, Helvetica, sans-serif'
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+// Функция для определения зависимости факторов
+function getDependencyConclusion(correlation, factor1Name, factor2Name) {
+    const absCorr = Math.abs(correlation);
+    let conclusion = '';
+    let color = '#666';
+    
+    if (absCorr >= 0.7) {
+        // Сильная корреляция - возможна зависимость
+        if (correlation > 0) {
+            conclusion = `Обнаружена сильная положительная связь между факторами. При увеличении "${factor1Name}" наблюдается увеличение "${factor2Name}". Это может указывать на наличие зависимости между факторами, однако корреляция не доказывает причинно-следственную связь.`;
+        } else {
+            conclusion = `Обнаружена сильная отрицательная связь между факторами (коэффициент корреляции: ${correlation.toFixed(3)}). При увеличении "${factor1Name}" наблюдается уменьшение "${factor2Name}". `;
+            conclusion += `⚠️ Внимание: Отрицательная корреляция между этими факторами может быть неожиданной и требует дополнительного анализа. `;
+            conclusion += `Возможные причины: влияние третьих факторов, особенности данных (разные единицы измерения, временные периоды), или ложная корреляция. `;
+            conclusion += `Корреляция не доказывает причинно-следственную связь и может не отражать реальную зависимость между факторами.`;
+        }
+        color = '#28a745'; // Зеленый для сильной связи
+    } else if (absCorr >= 0.5) {
+        // Умеренная корреляция
+        if (correlation > 0) {
+            conclusion = `Обнаружена умеренная положительная связь между факторами. При увеличении "${factor1Name}" наблюдается тенденция к увеличению "${factor2Name}". Связь присутствует, но зависимость не является сильной.`;
+        } else {
+            conclusion = `Обнаружена умеренная отрицательная связь между факторами (коэффициент корреляции: ${correlation.toFixed(3)}). При увеличении "${factor1Name}" наблюдается тенденция к уменьшению "${factor2Name}". `;
+            conclusion += `Связь присутствует, но зависимость не является сильной. Отрицательная корреляция может быть неожиданной и требует дополнительного анализа.`;
+        }
+        color = '#ffc107'; // Желтый для умеренной связи
+    } else if (absCorr >= 0.3) {
+        // Слабая корреляция
+        conclusion = `Обнаружена слабая связь между факторами "${factor1Name}" и "${factor2Name}". Зависимость между факторами минимальна или отсутствует.`;
+        color = '#ff9800'; // Оранжевый для слабой связи
+    } else {
+        // Очень слабая или отсутствующая корреляция
+        conclusion = `Связь между факторами "${factor1Name}" и "${factor2Name}" очень слабая или отсутствует. Факторы, вероятно, не зависят друг от друга.`;
+        color = '#dc3545'; // Красный для отсутствия связи
+    }
+    
+    return { conclusion, color };
+}
+
+// Функция отображения краткой информации о корреляции
+function displayCorrelationInfo(data, synchronized, correlation) {
+    const infoDiv = document.getElementById('correlationInfo');
+    if (!infoDiv) return;
+
+    const countryName = getCountryNameByCode(data.countryCode);
+    
+    // Интерпретация корреляции
+    let interpretation = '';
+    const absCorr = Math.abs(correlation);
+    if (absCorr >= 0.9) {
+        interpretation = 'Очень сильная';
+    } else if (absCorr >= 0.7) {
+        interpretation = 'Сильная';
+    } else if (absCorr >= 0.5) {
+        interpretation = 'Умеренная';
+    } else if (absCorr >= 0.3) {
+        interpretation = 'Слабая';
+    } else {
+        interpretation = 'Очень слабая или отсутствует';
+    }
+
+    const direction = correlation > 0 ? 'положительная' : 'отрицательная';
+
+    // Получаем вывод о зависимости
+    const dependency = getDependencyConclusion(
+        correlation,
+        data.factor1.dataSetInfo.name,
+        data.factor2.dataSetInfo.name
+    );
+
+    let html = `<h3 style="margin-top: 0; color: #007bff; font-size: 16px;">Результаты корреляционного анализа для ${countryName}</h3>`;
+    html += `<p style="margin: 8px 0;"><strong>Коэффициент корреляции Пирсона:</strong> ${correlation.toFixed(4)}</p>`;
+    html += `<p style="margin: 8px 0;"><strong>Интерпретация:</strong> ${interpretation} ${direction} корреляция</p>`;
+    html += `<p style="margin: 8px 0;"><strong>Количество точек данных:</strong> ${synchronized.years.length}</p>`;
+    html += `<p style="margin: 8px 0;"><strong>Период:</strong> ${synchronized.years[0]} - ${synchronized.years[synchronized.years.length - 1]}</p>`;
+    
+    // Добавляем вывод о зависимости
+    html += `<div style="margin-top: 15px; padding: 12px; background-color: ${dependency.color === '#28a745' ? '#d4edda' : dependency.color === '#ffc107' ? '#fff3cd' : dependency.color === '#ff9800' ? '#ffe0b2' : '#f8d7da'}; border-left: 4px solid ${dependency.color}; border-radius: 4px;">`;
+    html += `<p style="margin: 0; color: ${dependency.color === '#28a745' ? '#155724' : dependency.color === '#ffc107' ? '#856404' : dependency.color === '#ff9800' ? '#e65100' : '#721c24'}; font-weight: bold; margin-bottom: 8px;">Вывод о зависимости факторов:</p>`;
+    html += `<p style="margin: 0; color: #333; line-height: 1.5;">${dependency.conclusion}</p>`;
+    html += `</div>`;
+    
+    html += `<p style="margin: 8px 0; color: #666; font-size: 13px;">Подробная статистика доступна в модальном окне</p>`;
+
+    infoDiv.innerHTML = html;
+    infoDiv.style.display = 'block';
+}
+
+// Функция отображения статистики корреляции
+function displayCorrelationStatistics(data, synchronized, correlation) {
+    const countryName = getCountryNameByCode(data.countryCode);
+    
+    // Вычисляем дополнительные статистики
+    const factor1Mean = calculateMean(synchronized.factor1Values);
+    const factor2Mean = calculateMean(synchronized.factor2Values);
+    const factor1Std = calculateStandardDeviation(synchronized.factor1Values);
+    const factor2Std = calculateStandardDeviation(synchronized.factor2Values);
+
+    // Интерпретация корреляции
+    let interpretation = '';
+    const absCorr = Math.abs(correlation);
+    if (absCorr >= 0.9) {
+        interpretation = 'Очень сильная';
+    } else if (absCorr >= 0.7) {
+        interpretation = 'Сильная';
+    } else if (absCorr >= 0.5) {
+        interpretation = 'Умеренная';
+    } else if (absCorr >= 0.3) {
+        interpretation = 'Слабая';
+    } else {
+        interpretation = 'Очень слабая или отсутствует';
+    }
+
+    const direction = correlation > 0 ? 'положительная' : 'отрицательная';
+
+    // Создаем HTML для модального окна
+    let html = '<div class="correlation-info">';
+    html += `<h3>Корреляционный анализ для ${countryName}</h3>`;
+    html += '<div class="correlation-info-item">';
+    html += `<span class="correlation-info-label">Коэффициент корреляции Пирсона:</span>`;
+    html += `<span class="correlation-info-value">${correlation.toFixed(4)}</span>`;
+    html += '</div>';
+    html += '<div class="correlation-info-item">';
+    html += `<span class="correlation-info-label">Интерпретация:</span>`;
+    html += `<span class="correlation-info-value">${interpretation} ${direction} корреляция</span>`;
+    html += '</div>';
+    html += '<div class="correlation-info-item">';
+    html += `<span class="correlation-info-label">Количество точек данных:</span>`;
+    html += `<span class="correlation-info-value">${synchronized.years.length}</span>`;
+    html += '</div>';
+    html += '<div class="correlation-info-item">';
+    html += `<span class="correlation-info-label">Период:</span>`;
+    html += `<span class="correlation-info-value">${synchronized.years[0]} - ${synchronized.years[synchronized.years.length - 1]}</span>`;
+    html += '</div>';
+    html += '</div>';
+
+    // Добавляем вывод о зависимости факторов
+    const dependency = getDependencyConclusion(
+        correlation,
+        data.factor1.dataSetInfo.name,
+        data.factor2.dataSetInfo.name
+    );
+    
+    html += '<div class="correlation-info" style="margin-top: 15px;">';
+    html += '<h3>Вывод о зависимости факторов</h3>';
+    html += `<div style="padding: 15px; background-color: ${dependency.color === '#28a745' ? '#d4edda' : dependency.color === '#ffc107' ? '#fff3cd' : dependency.color === '#ff9800' ? '#ffe0b2' : '#f8d7da'}; border-left: 4px solid ${dependency.color}; border-radius: 4px; margin-top: 10px;">`;
+    html += `<p style="margin: 0; color: ${dependency.color === '#28a745' ? '#155724' : dependency.color === '#ffc107' ? '#856404' : dependency.color === '#ff9800' ? '#e65100' : '#721c24'}; line-height: 1.6;">${dependency.conclusion}</p>`;
+    html += '</div>';
+    html += '</div>';
+
+    html += '<div class="correlation-info" style="margin-top: 15px;">';
+    html += '<h3>Статистика по факторам</h3>';
+    html += '<table class="statistics-table">';
+    html += '<tr><th>Параметр</th><th>Фактор 1</th><th>Фактор 2</th></tr>';
+    html += `<tr><td>Название</td><td>${data.factor1.dataSetInfo.name}</td><td>${data.factor2.dataSetInfo.name}</td></tr>`;
+    html += `<tr><td>Единица измерения</td><td>${data.factor1.dataSetInfo.unit}</td><td>${data.factor2.dataSetInfo.unit}</td></tr>`;
+    html += `<tr><td>Среднее значение</td><td>${factor1Mean.toFixed(2)}</td><td>${factor2Mean.toFixed(2)}</td></tr>`;
+    html += `<tr><td>Стандартное отклонение</td><td>${factor1Std.toFixed(2)}</td><td>${factor2Std.toFixed(2)}</td></tr>`;
+    html += `<tr><td>Минимальное значение</td><td>${Math.min(...synchronized.factor1Values).toFixed(2)}</td><td>${Math.min(...synchronized.factor2Values).toFixed(2)}</td></tr>`;
+    html += `<tr><td>Максимальное значение</td><td>${Math.max(...synchronized.factor1Values).toFixed(2)}</td><td>${Math.max(...synchronized.factor2Values).toFixed(2)}</td></tr>`;
+    html += '</table>';
+    html += '</div>';
+
+    // Отображаем в модальном окне
+    const modal = document.getElementById('correlationModal');
+    const content = document.getElementById('correlationContent');
+    
+    if (modal && content) {
+        content.innerHTML = html;
+        modal.classList.add('show');
+    }
+}
+
+// Функция закрытия модального окна корреляции
+window.closeCorrelationModal = function() {
+    const modal = document.getElementById('correlationModal');
+    if (modal) {
+        modal.classList.remove('show');
+    }
+}
+
+// Закрытие модального окна корреляции при клике вне его
+document.addEventListener('click', function(event) {
+    const modal = document.getElementById('correlationModal');
+    if (modal && event.target === modal) {
+        window.closeCorrelationModal();
+    }
+});
+
+// Инициализация элементов корреляции при загрузке
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+        setTimeout(initCorrelationElements, 100);
+        // Список стран уже запрашивается в initTabs(), но запросим еще раз на всякий случай
+        if (!countriesList || countriesList.length === 0) {
+            ipcRenderer.send('get-countries');
+        }
+    });
+} else {
+    setTimeout(initCorrelationElements, 100);
+    // Список стран уже запрашивается в initTabs(), но запросим еще раз на всякий случай
+    if (!countriesList || countriesList.length === 0) {
+        ipcRenderer.send('get-countries');
+    }
+}

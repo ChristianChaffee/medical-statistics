@@ -15,7 +15,9 @@ const {
     getCountriesList,
     refreshCountriesList,
     loadDataSet,
-    
+    parseData,
+    setSelectedCountriesCodes,
+    getSelectedCountriesCodes
 } = require('./data');
 
 //================================================= Обработка событий
@@ -40,6 +42,90 @@ ipcMain.on('get-countries', (event) => {
   event.reply('countries-list', countriesList);
 });
 
+ipcMain.on('get-data-sets', (event) => {
+  event.reply('data-sets-list', dataSets);
+});
+
+ipcMain.on('select-countries', (event, countryCodes) => {
+  setSelectedCountriesCodes(countryCodes);
+  const currentSelectedCodes = getSelectedCountriesCodes();
+  if (currentSelectedCodes.length > 0 && selectedData) {
+    loadDataSet(selectedData[0], currentSelectedCodes, mainWindow);
+  } else {
+    // Получаем актуальный список стран перед отправкой
+    const currentCountriesList = getCountriesList();
+    mainWindow.webContents.send('parse-data', {
+      parsedData: [],
+      countriesList: currentCountriesList && currentCountriesList.length > 0 ? currentCountriesList : countriesList
+    });
+  }
+});
+
+ipcMain.on('select-data-set', (event, dataSetCode) => {
+  const dataSet = dataSets.find(ds => ds[0] === dataSetCode);
+  if (dataSet) {
+    selectedData = dataSet;
+    SendMainDataToRender();
+    const currentSelectedCodes = getSelectedCountriesCodes();
+    if (currentSelectedCodes.length > 0) {
+      loadDataSet(dataSetCode, currentSelectedCodes, mainWindow);
+    }
+  }
+});
+
+ipcMain.on('load-correlation-data', async (event, { countryCode, factor1Code, factor2Code }) => {
+  try {
+    const correlationData = {
+      countryCode: countryCode,
+      factor1: null,
+      factor2: null
+    };
+
+    // Загружаем данные для первого фактора
+    if (factor1Code) {
+      const http1 = `https://dw.euro.who.int/api/v3/measures/${factor1Code}?filter=COUNTRY:${countryCode}&lang=RU`;
+      const response1 = await axios.get(http1, {
+        httpsAgent: new (require('https').Agent)({
+          rejectUnauthorized: false
+        }),
+        timeout: 10000
+      });
+      correlationData.factor1 = parseData(response1.data);
+      correlationData.factor1.dataSetInfo = {
+        code: response1.data.code,
+        name: response1.data.short_name,
+        fullName: response1.data.full_name,
+        unit: response1.data.metadata?.find(m => m.code === 'UNIT_TYPE')?.value?.label || 'N/A'
+      };
+    }
+
+    // Загружаем данные для второго фактора
+    if (factor2Code) {
+      const http2 = `https://dw.euro.who.int/api/v3/measures/${factor2Code}?filter=COUNTRY:${countryCode}&lang=RU`;
+      const response2 = await axios.get(http2, {
+        httpsAgent: new (require('https').Agent)({
+          rejectUnauthorized: false
+        }),
+        timeout: 10000
+      });
+      correlationData.factor2 = parseData(response2.data);
+      correlationData.factor2.dataSetInfo = {
+        code: response2.data.code,
+        name: response2.data.short_name,
+        fullName: response2.data.full_name,
+        unit: response2.data.metadata?.find(m => m.code === 'UNIT_TYPE')?.value?.label || 'N/A'
+      };
+    }
+
+    event.reply('correlation-data-loaded', correlationData);
+  } catch (error) {
+    console.log(`[load-correlation-data ERROR]: ${error.message || error}`);
+    event.reply('correlation-data-loaded', {
+      error: error.message || 'Ошибка загрузки данных'
+    });
+  }
+});
+
 //================================================= Остальные функции
 function createWindow() {
     mainWindow = new BrowserWindow({
@@ -57,6 +143,11 @@ function createWindow() {
         const countries = getCountriesList();
         if (countries && countries.length > 0) {
             selectedCountry = countries[0];
+            // Устанавливаем начальную выбранную страну (например, первую)
+            const currentSelectedCodes = getSelectedCountriesCodes();
+            if (currentSelectedCodes.length === 0) {
+                setSelectedCountriesCodes([countries[0].code]);
+            }
         }
         if (dataSets && dataSets.length > 0) {
             selectedData = dataSets[0];
@@ -64,96 +155,32 @@ function createWindow() {
 
         createSimpleMenu(mainWindow);
 
+        // Отправляем данные после загрузки страницы
+        mainWindow.webContents.once('did-finish-load', () => {
+            // Отправляем список наборов данных
+            mainWindow.webContents.send('data-sets-list', dataSets);
+            // Отправляем начальный выбор данных
+            if (selectedData) {
+                mainWindow.webContents.send('main-data-update', {
+                    countryName: selectedCountry ? selectedCountry.name : '',
+                    dataName: selectedData[1]
+                });
+                // Загружаем данные для начально выбранной страны
+                const currentSelectedCodes = getSelectedCountriesCodes();
+                if (currentSelectedCodes.length > 0) {
+                    loadDataSet(selectedData[0], currentSelectedCodes, mainWindow);
+                }
+            }
+        });
+
         if(DEBUG_ENABLE) mainWindow.webContents.openDevTools();
     });
 }
 
 function createSimpleMenu(mainWindow) {
-
-    const currentCountriesList = getCountriesList();
-    const countriesSubmenu = currentCountriesList.map((country, index) => {
-        const isChecked = selectedCountriesCodes.includes(country.code);
-        return {
-            label: country.name,
-            type: 'checkbox',
-            checked: isChecked,
-            click: (menuItem) => {
-                selectedCountry = country;
-                SendMainDataToRender();
-
-                const findIndex = selectedCountriesCodes.findIndex(item => item === selectedCountry.code);
-                if(findIndex == -1){
-                    // Добавляем страну
-                    selectedCountriesCodes.push(selectedCountry.code);
-                    menuItem.checked = true;
-                }
-                else {
-                    // Удаляем страну
-                    selectedCountriesCodes.splice(findIndex, 1);
-                    menuItem.checked = false;
-                }
-
-                // Перезагружаем данные только для выбранных стран
-                if (selectedCountriesCodes.length > 0) {
-                    loadDataSet(selectedData[0], selectedCountriesCodes, mainWindow);
-                } else {
-                    // Если все страны сняты, отправляем пустой массив для удаления всех графиков
-                    mainWindow.webContents.send('parse-data', {
-                        parsedData: [],
-                        countriesList: countriesList
-                    });
-                }
-
-                if(DEBUG_ENABLE) console.log(`[countriesSubmenu Clicked]: ${country.name} (${country.code}), checked: ${menuItem.checked}`);
-            }
-        };
-    })
-
-    const template = [
-        {
-            label: 'Государство',
-            submenu: countriesSubmenu
-        },
-        {
-            label: 'Данные',
-            submenu: dataSets.map(item => ({
-                label: item[1],
-                id: item[0],
-                type: 'radio',
-                click: () => {
-                    selectedData = item;
-                    SendMainDataToRender();
-
-                    // Загружаем данные для всех выбранных стран
-                    if (selectedCountriesCodes.length > 0) {
-                        loadDataSet(item[0], selectedCountriesCodes, mainWindow);
-                    }
-                }
-            }))
-        },
-        {
-            label: 'Вид',
-            submenu: [
-                {
-                    label: 'Перезагрузить',
-                    accelerator: 'CmdOrCtrl+R',
-                    click: () => {
-                        mainWindow.reload();
-                    }
-                },
-                {
-                    label: 'Инструменты разработчика',
-                    accelerator: 'F12',
-                    click: () => {
-                        mainWindow.webContents.toggleDevTools();
-                    }
-                }
-            ]
-        }
-    ];
-
-    const menu = Menu.buildFromTemplate(template);
-    Menu.setApplicationMenu(menu);
+    // Меню удалено - все функции доступны через интерфейс
+    // Для перезагрузки можно использовать Ctrl+R, для DevTools - F12
+    Menu.setApplicationMenu(null);
 }
 
 function SendMainDataToRender(){

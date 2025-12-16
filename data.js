@@ -17,6 +17,14 @@ let countriesList = [];
 let selectedCountriesCodes = ['AUT'];
 
 //===================================================================
+function setSelectedCountriesCodes(codes) {
+    selectedCountriesCodes = codes || [];
+}
+
+function getSelectedCountriesCodes() {
+    return selectedCountriesCodes;
+}
+
 module.exports = {
     DEBUG_ENABLE,
     dataSets,
@@ -24,7 +32,10 @@ module.exports = {
     selectedCountriesCodes,
     getCountriesList,
     refreshCountriesList,
-    loadDataSet
+    loadDataSet,
+    parseData,
+    setSelectedCountriesCodes,
+    getSelectedCountriesCodes
 };
 
 //===================================================================
